@@ -35,7 +35,11 @@
     max-height:74vh;
     image-rendering:pixelated;
     image-rendering:crisp-edges;
+    touch-action:none;
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;
   }
+  html,body{overscroll-behavior:none;}
   .legend{
     font-size:11px;letter-spacing:.12em;text-transform:uppercase;
     text-align:center;line-height:1.9;max-width:640px;
@@ -46,18 +50,6 @@
     border-radius:3px;padding:0 6px;margin:0 2px;color:var(--turf);
     background:#161d10;font-size:10px;
   }
-  #pads{display:none;width:min(94vw,960px);justify-content:space-between;align-items:center;user-select:none;-webkit-user-select:none;}
-  #pads button{
-    font:inherit;color:var(--cream);background:#1c2614;border:2px solid #33402a;
-    border-bottom-width:5px;border-radius:8px;touch-action:none;
-    letter-spacing:.08em;
-  }
-  #pads button:active{transform:translateY(2px);border-bottom-width:3px;}
-  #dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:4px;}
-  #dpad button{font-size:20px;}
-  #dpad .blank{visibility:hidden;}
-  #act{width:120px;height:120px;border-radius:60px;font-size:13px;color:var(--turf);}
-  @media (pointer:coarse){ #pads{display:flex;} }
   @media (prefers-reduced-motion:reduce){ #cab{box-shadow:none;} }
 </style>
 
@@ -70,16 +62,8 @@
   &nbsp;<b>sound</b> <span class="k">M</span><br>
   mow grass to earn spray &amp; fertilizer &middot; stay above 45% &mdash; one HOA letter ends it<br>
   grab a cold one at the house &mdash; faster mowing, questionable steering<br>
-  the neighborhood dog does his business on your turf &mdash; bag it before the HOA sees
-</div>
-
-<div id="pads">
-  <div id="dpad">
-    <button class="blank"></button><button data-k="up">&#9650;</button><button class="blank"></button>
-    <button data-k="left">&#9664;</button><button class="blank"></button><button data-k="right">&#9654;</button>
-    <button class="blank"></button><button data-k="down">&#9660;</button><button class="blank"></button>
-  </div>
-  <button id="act">USE</button>
+  the neighborhood dog does his business on your turf &mdash; bag it before the HOA sees<br>
+  on touch: <b>drag anywhere</b> to drive &middot; <b>tap</b> to act (second finger works too)
 </div>
 
 <script>
@@ -849,21 +833,43 @@ window.addEventListener('keyup', (e) => {
   if (k) keys[k] = false;
 });
 
-/* touch pads */
-document.querySelectorAll('#dpad button[data-k]').forEach(b => {
-  const k = b.dataset.k;
-  const on  = (e) => { e.preventDefault(); initAudio(); if (AC && AC.state==='suspended') AC.resume();
-                       if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; return; } keys[k] = true; lastDir = k; };
-  const off = (e) => { e.preventDefault(); keys[k] = false; };
-  b.addEventListener('pointerdown', on);
-  b.addEventListener('pointerup', off);
-  b.addEventListener('pointercancel', off);
-  b.addEventListener('pointerleave', off);
+/* touch: floating joystick wherever the finger lands; tap = action */
+const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+const touch = { active:false, id:null, ox:0, oy:0, dx:0, dy:0, t0:0, moved:false };
+function canvasPos(e){
+  const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (W / r.width),
+           y: (e.clientY - r.top)  * (H / r.height) };
+}
+cv.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse') return;         // mouse players have a keyboard
+  e.preventDefault();
+  initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; return; }
+  if (!touch.active){
+    const p = canvasPos(e);
+    touch.active = true; touch.id = e.pointerId;
+    touch.ox = p.x; touch.oy = p.y; touch.dx = 0; touch.dy = 0;
+    touch.t0 = performance.now(); touch.moved = false;
+    try { cv.setPointerCapture(e.pointerId); } catch(err){}
+  } else {
+    action();                                    // second finger fires the action
+  }
 });
-document.getElementById('act').addEventListener('pointerdown', (e) => {
-  e.preventDefault(); initAudio(); if (AC && AC.state==='suspended') AC.resume();
-  if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; } else action();
+cv.addEventListener('pointermove', (e) => {
+  if (!touch.active || e.pointerId !== touch.id) return;
+  e.preventDefault();
+  const p = canvasPos(e);
+  touch.dx = p.x - touch.ox; touch.dy = p.y - touch.oy;
+  if (Math.hypot(touch.dx, touch.dy) > 9) touch.moved = true;
 });
+function endTouch(e){
+  if (!touch.active || e.pointerId !== touch.id) return;
+  if (!touch.moved && performance.now() - touch.t0 < 300) action();   // it was a tap
+  touch.active = false; touch.id = null; touch.dx = 0; touch.dy = 0;
+}
+cv.addEventListener('pointerup', endTouch);
+cv.addEventListener('pointercancel', endTouch);
 
 /* ---------- context action ---------- */
 function findAction(){
@@ -975,6 +981,10 @@ function update(dt){
   let vx = 0, vy = 0;
   if (keys.up) vy -= 1; if (keys.down) vy += 1;
   if (keys.left) vx -= 1; if (keys.right) vx += 1;
+  if (touch.active && touch.moved){              // joystick overrides keys
+    const td = Math.hypot(touch.dx, touch.dy);
+    if (td > 9){ vx = touch.dx/td; vy = touch.dy/td; }
+  }
   buzzT -= dt; beerCD -= dt;
   player.moving = (vx || vy);
   if (player.moving){
@@ -1735,6 +1745,7 @@ function drawHUD(){
     else if (a && a.type === 'weed') hint = 'SPACE: SPRAY WEED';
     else if (a && a.type === 'poo') hint = 'SPACE: BAG THE POOP';
     else if (a && a.type === 'fix') hint = a.t.ground === 2 ? 'SPACE: FILL HOLE' : 'SPACE: RESEED';
+    if (TOUCHCAP) hint = hint.replace('SPACE:', 'TAP:');
     ctx.fillStyle = 'rgba(16,21,13,0.75)';
     const hw = textW(hint,1)+8;
     ctx.fillRect(W/2-hw/2, H-11, hw, 9);
@@ -1806,6 +1817,20 @@ function drawPlay(){
     drawTextC(an.big, W/2, 130, 3, C.cream);
     if (an.small) drawTextC(an.small, W/2, 152, 1, C.accent);
     ctx.globalAlpha = 1;
+  }
+  if (touch.active && touch.moved){              // floating joystick
+    const maxR = 18;
+    let jx = touch.dx, jy = touch.dy;
+    const jd = Math.hypot(jx, jy);
+    if (jd > maxR){ jx = jx/jd*maxR; jy = jy/jd*maxR; }
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = C.cream;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(touch.ox, touch.oy, maxR, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = C.accent;
+    ctx.beginPath(); ctx.arc(touch.ox + jx, touch.oy + jy, 6, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
   }
   if (paused){
     ctx.fillStyle = 'rgba(16,21,13,0.7)'; ctx.fillRect(0, 0, W, H);
@@ -1904,12 +1929,13 @@ function drawTitle(){
   ctx.fillRect(56, 104, W-112, 112);
   drawTextC('TURF MAINTENANCE SIMULATOR', W/2, 112, 1, C.cream);
   drawTextC('MOW. SPRAY. HONK. SURVIVE THE HOA.', W/2, 126, 1, '#c9d6ae');
-  drawTextC('DRIVE: WASD / ARROWS', W/2, 146, 1, '#a3b18c');
-  drawTextC('SPACE: SPRAY WEEDS - BAG POOP - FIX HOLES - HONK', W/2, 157, 1, '#a3b18c');
+  drawTextC(TOUCHCAP ? 'DRAG ANYWHERE TO DRIVE' : 'DRIVE: WASD / ARROWS', W/2, 146, 1, '#a3b18c');
+  drawTextC(TOUCHCAP ? 'TAP: SPRAY - BAG POOP - FIX - HONK' : 'SPACE: SPRAY WEEDS - BAG POOP - FIX HOLES - HONK', W/2, 157, 1, '#a3b18c');
   drawTextC('MOW GRASS TO EARN SPRAY AND FERTILIZER', W/2, 168, 1, '#a3b18c');
   drawTextC('GRAB A COLD ONE AT THE HOUSE: FAST BUT WOBBLY', W/2, 179, 1, '#a3b18c');
   drawTextC('ONE HOA LETTER AND YOU ARE DONE FOR', W/2, 190, 1, '#a3b18c');
-  if (Math.floor(t*2)%2===0) drawTextC('PRESS ENTER TO CLOCK IN', W/2, 202, 1, C.accent);
+  if (Math.floor(t*2)%2===0)
+    drawTextC(TOUCHCAP ? 'TAP TO CLOCK IN' : 'PRESS ENTER TO CLOCK IN', W/2, 202, 1, C.accent);
   drawTextC('A HOPE LAWN CO. PRODUCTION', W/2, 222, 1, 'rgba(30,58,18,0.85)');
   if (scoresCache.length)
     drawTextC('BEST: ' + scoresCache[0].s + ' - DAY ' + scoresCache[0].d, W/2, 236, 1, 'rgba(30,58,18,0.85)');
@@ -1939,7 +1965,8 @@ function drawOver(){
         i === lastRank ? C.accent : C.cream);
     }
   }
-  if (Math.floor(tSinceStart*2)%2===0) drawTextC('PRESS ENTER FOR A NEW CONTRACT', W/2, 262, 1, C.cream);
+  if (Math.floor(tSinceStart*2)%2===0)
+    drawTextC(TOUCHCAP ? 'TAP FOR A NEW CONTRACT' : 'PRESS ENTER FOR A NEW CONTRACT', W/2, 262, 1, C.cream);
 }
 
 /* ---------- loop ---------- */

@@ -22,7 +22,8 @@ Open `index.html` in a browser. That's it.
 | M | Mute |
 | Enter | Clock in / new contract |
 
-On touch devices an on-screen d-pad and action button appear.
+On touch devices, drag anywhere to drive — a joystick appears under your
+finger. Tap to act (a second finger while steering works too).
 
 ## The job
 

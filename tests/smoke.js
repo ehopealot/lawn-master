@@ -105,6 +105,15 @@ if (dirtAfter <= dirtBefore) throw new Error('drought made no dry patches');
 activeEvent = null;
 for (const t of tiles) if (t.ground === 1) t.ground = 0;
 
+// touch joystick: analog vector drives the mower
+player.x = 100; player.y = HUD_H + 100; buzzT = 0;
+touch.active = true; touch.moved = true; touch.dx = 30; touch.dy = 0;
+const px0 = player.x;
+for (let i=0;i<20;i++) step(16);
+if (player.x <= px0) throw new Error('joystick did not move player');
+if (player.fx !== 1) throw new Error('joystick facing wrong');
+touch.active = false; touch.moved = false; touch.dx = 0; touch.dy = 0;
+
 // gnome party: 6 gnomes, collectible by driving over
 gnomes = [];
 triggerEvent('gnomeparty');
