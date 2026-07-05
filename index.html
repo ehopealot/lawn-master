@@ -47,7 +47,8 @@
   }
   #rotate .arr{font-size:42px;display:block;letter-spacing:0;}
   @media (pointer:coarse){
-    body{padding:0;background:#000;}
+    html,body{height:100%;overflow:hidden;}
+    body{position:fixed;inset:0;padding:0;background:#000;}
     .legend{display:none;}
     #cab{border:none;outline:none;box-shadow:none;background:#000;}
   }
@@ -851,25 +852,31 @@ window.addEventListener('keyup', (e) => {
 /* touch: floating joystick wherever the finger lands; tap = action */
 const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 
-/* size the canvas to fill the window (desktop keeps room for the legend) */
+/* size the canvas to fill the window (desktop keeps room for the legend).
+   mobile browsers lie in resize/orientationchange handlers, so the game loop
+   re-checks the visual viewport every frame and refits when it changes. */
+function viewportDims(){
+  const vv = window.visualViewport;
+  if (TOUCHCAP && vv) return { w: vv.width, h: vv.height };
+  return { w: window.innerWidth || 960, h: window.innerHeight || 700 };
+}
 function fitCanvas(){
-  const vw = window.innerWidth || 960, vh = window.innerHeight || 700;
+  const d = viewportDims();
   let availW, availH;
   if (TOUCHCAP){
-    availW = vw; availH = vh;
+    availW = d.w; availH = d.h;
   } else {
     const lg = document.getElementById('legend');
     // legend + flex gap + body padding + cab frame, measured not guessed
     const chrome = ((lg && lg.offsetHeight) || 96) + 76;
-    availW = Math.min(vw - 32, 1440);
-    availH = vh - chrome;
+    availW = Math.min(d.w - 32, 1440);
+    availH = d.h - chrome;
   }
   const s = Math.max(0.5, Math.min(availW/W, availH/H));
-  cv.style.width = Math.round(W*s) + 'px';
-  cv.style.height = Math.round(H*s) + 'px';
+  cv.style.width = Math.floor(W*s) + 'px';
+  cv.style.height = Math.floor(H*s) + 'px';
 }
-window.addEventListener('resize', fitCanvas);
-window.addEventListener('orientationchange', fitCanvas);
+let lastVP = '';
 fitCanvas();
 let fsTried = false;
 const touch = { active:false, id:null, ox:0, oy:0, dx:0, dy:0, t0:0, moved:false };
@@ -2018,6 +2025,9 @@ function drawOver(){
 /* ---------- loop ---------- */
 let last = performance.now();
 function frame(now){
+  const vd = viewportDims();
+  const sig = (vd.w|0) + 'x' + (vd.h|0);
+  if (sig !== lastVP){ lastVP = sig; fitCanvas(); }
   const dt = Math.min(0.05, (now-last)/1000);
   last = now;
   if (state === 'title') tSinceStart += dt; else update(dt);
