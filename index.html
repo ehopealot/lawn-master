@@ -71,15 +71,14 @@
 
 <div id="rotate"><div><span class="arr">&#8635;</span>ROTATE YOUR PHONE<br>THE LAWN IS WIDE</div></div>
 
-<div class="legend">
+<div class="legend" id="legend">
   <b>drive</b> <span class="k">W A S D</span>/<span class="k">arrows</span>
   &nbsp;<b>spray / fix / honk</b> <span class="k">space</span>
   &nbsp;<b>pause</b> <span class="k">P</span>
   &nbsp;<b>sound</b> <span class="k">M</span><br>
   mow grass to earn spray &amp; fertilizer &middot; stay above 45% &mdash; one HOA letter ends it<br>
   grab a cold one at the house &mdash; faster mowing, questionable steering<br>
-  the neighborhood dog does his business on your turf &mdash; bag it before the HOA sees<br>
-  on touch: <b>drag anywhere</b> to drive &middot; <b>tap</b> to act (second finger works too)
+  the neighborhood dog does his business on your turf &mdash; bag it before the HOA sees
 </div>
 
 <script>
@@ -855,8 +854,16 @@ const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').
 /* size the canvas to fill the window (desktop keeps room for the legend) */
 function fitCanvas(){
   const vw = window.innerWidth || 960, vh = window.innerHeight || 700;
-  const availW = TOUCHCAP ? vw : Math.min(vw - 32, 1440);
-  const availH = TOUCHCAP ? vh : vh - 130;
+  let availW, availH;
+  if (TOUCHCAP){
+    availW = vw; availH = vh;
+  } else {
+    const lg = document.getElementById('legend');
+    // legend + flex gap + body padding + cab frame, measured not guessed
+    const chrome = ((lg && lg.offsetHeight) || 96) + 76;
+    availW = Math.min(vw - 32, 1440);
+    availH = vh - chrome;
+  }
   const s = Math.max(0.5, Math.min(availW/W, availH/H));
   cv.style.width = Math.round(W*s) + 'px';
   cv.style.height = Math.round(H*s) + 'px';
