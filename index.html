@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Lawnmaster</title>
+<style>
+  :root{
+    --hedge:#10150d;
+    --hedge-2:#1a2213;
+    --cream:#f2eac9;
+    --moss:#7d8a6f;
+    --turf:#9adb4f;
+  }
+  html,body{height:100%;}
+  body{
+    background:var(--hedge);
+    color:var(--moss);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;min-height:100vh;padding:18px 12px 26px;
+  }
+  #cab{
+    position:relative;
+    border:4px solid #223618;
+    outline:2px solid #0a0d07;
+    box-shadow:0 0 0 8px var(--hedge-2), 0 18px 50px rgba(0,0,0,.55);
+    background:#0d160b;
+    line-height:0;
+  }
+  canvas{
+    width:min(94vw,960px);
+    max-height:74vh;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+  }
+  .legend{
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    text-align:center;line-height:1.9;max-width:640px;
+  }
+  .legend b{color:var(--cream);font-weight:600;}
+  .legend .k{
+    display:inline-block;border:1px solid #33402a;border-bottom-width:3px;
+    border-radius:3px;padding:0 6px;margin:0 2px;color:var(--turf);
+    background:#161d10;font-size:10px;
+  }
+  #pads{display:none;width:min(94vw,960px);justify-content:space-between;align-items:center;user-select:none;-webkit-user-select:none;}
+  #pads button{
+    font:inherit;color:var(--cream);background:#1c2614;border:2px solid #33402a;
+    border-bottom-width:5px;border-radius:8px;touch-action:none;
+    letter-spacing:.08em;
+  }
+  #pads button:active{transform:translateY(2px);border-bottom-width:3px;}
+  #dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:4px;}
+  #dpad button{font-size:20px;}
+  #dpad .blank{visibility:hidden;}
+  #act{width:120px;height:120px;border-radius:60px;font-size:13px;color:var(--turf);}
+  @media (pointer:coarse){ #pads{display:flex;} }
+  @media (prefers-reduced-motion:reduce){ #cab{box-shadow:none;} }
+</style>
+
+<div id="cab"><canvas id="game" width="480" height="336"></canvas></div>
+
+<div class="legend">
+  <b>drive</b> <span class="k">W A S D</span>/<span class="k">arrows</span>
+  &nbsp;<b>spray / fix / honk</b> <span class="k">space</span>
+  &nbsp;<b>pause</b> <span class="k">P</span>
+  &nbsp;<b>sound</b> <span class="k">M</span><br>
+  mow grass to earn spray &amp; fertilizer &middot; keep the lawn above 45% or the HOA writes you up
+</div>
+
+<div id="pads">
+  <div id="dpad">
+    <button class="blank"></button><button data-k="up">&#9650;</button><button class="blank"></button>
+    <button data-k="left">&#9664;</button><button class="blank"></button><button data-k="right">&#9654;</button>
+    <button class="blank"></button><button data-k="down">&#9660;</button><button class="blank"></button>
+  </div>
+  <button id="act">USE</button>
+</div>
+
+<script>
+"use strict";
+/* ============================== LAWNMASTER ==============================
+   a turf maintenance simulator. mow, spray, honk, survive the HOA.
+======================================================================== */
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const W = 480, H = 336, TILE = 16, HUD_H = 32;
+const GW = 30, GH = 19;                       // 30 x 19 tiles below the HUD
+
+/* ---------- palette ---------- */
+const C = {
+  g0a:'#8fcb5b', g0b:'#7cba4c',               // fresh-cut stripes
+  g1:'#6baa42',
+  g2:'#559339', g2t:'#3e7a2e',
+  g3:'#417e30', g3t:'#2e5f22', seed:'#c9d98a',
+  dirt:'#8a6a44', dirtSp:'#6f5335',
+  holeRim:'#5c4530', holeMid:'#3a2b1c', holeDk:'#241a10',
+  hudBg:'#1d3a20', hudLine:'#0f1f10',
+  cream:'#f2eac9', accent:'#9adb4f', warn:'#e8b23a', bad:'#d95b43',
+  night:'#122a14'
+};
+
+/* ---------- tiny 3x5 bitmap font ---------- */
+const FONT = {
+  A:[2,5,7,5,5],B:[6,5,6,5,6],C:[3,4,4,4,3],D:[6,5,5,5,6],E:[7,4,6,4,7],
+  F:[7,4,6,4,4],G:[3,4,5,5,3],H:[5,5,7,5,5],I:[7,2,2,2,7],J:[1,1,1,5,2],
+  K:[5,5,6,5,5],L:[4,4,4,4,7],M:[7,7,5,5,5],N:[6,5,5,5,5],O:[2,5,5,5,2],
+  P:[6,5,6,4,4],Q:[2,5,5,6,3],R:[6,5,6,5,5],S:[3,4,2,1,6],T:[7,2,2,2,2],
+  U:[5,5,5,5,7],V:[5,5,5,5,2],W:[5,5,7,7,5],X:[5,5,2,5,5],Y:[5,5,2,2,2],
+  Z:[7,1,2,4,7],
+  '0':[7,5,5,5,7],'1':[2,6,2,2,7],'2':[6,1,2,4,7],'3':[7,1,3,1,7],
+  '4':[5,5,7,1,1],'5':[7,4,6,1,6],'6':[3,4,7,5,7],'7':[7,1,2,2,2],
+  '8':[7,5,2,5,7],'9':[7,5,7,1,6],
+  ' ':[0,0,0,0,0],'%':[5,1,2,4,5],'+':[0,2,7,2,0],'-':[0,0,7,0,0],
+  '.':[0,0,0,0,2],'!':[2,2,2,0,2],':':[0,2,0,2,0],'/':[1,1,2,4,4],
+  'x':[0,5,2,5,0]
+};
+function textW(s, sc){ return s.length*4*sc - sc; }
+function drawText(s, x, y, sc, col){
+  ctx.fillStyle = col;
+  for (const chRaw of s){
+    const ch = (chRaw === 'x') ? 'x' : chRaw.toUpperCase();
+    const g = FONT[ch];
+    if (g) for (let r=0;r<5;r++){
+      const row = g[r];
+      for (let c=0;c<3;c++) if ((row>>(2-c))&1) ctx.fillRect(x+c*sc, y+r*sc, sc, sc);
+    }
+    x += 4*sc;
+  }
+}
+function drawTextC(s, cx, y, sc, col){ drawText(s, Math.round(cx - textW(s,sc)/2), y, sc, col); }
+
+/* ---------- sprite helper ---------- */
+const SPAL = {
+  c:'#d94f37', s:'#e8b988', b:'#3e6fae', r:'#c6392e', d:'#8c2a22',
+  k:'#20211d', g:'#8f9389', y:'#f2d24b', w:'#f5f2e8', x:'#b9bdb4',
+  t:'#8a5a34', a:'#b98d5a', e:'#5c3a20', h:'#6f4a2a',
+  p:'#fdf6ce', o:'#e0dcc8', u:'#2f6b2a'
+};
+function drawMap(map, x, y, flip){
+  const w = map[0].length;
+  for (let r=0;r<map.length;r++){
+    const row = map[r];
+    for (let c=0;c<w;c++){
+      const ch = row[c];
+      if (ch === '.') continue;
+      ctx.fillStyle = SPAL[ch];
+      ctx.fillRect(x + (flip ? w-1-c : c), y + r, 1, 1);
+    }
+  }
+}
+
+/* ---------- sprites ---------- */
+const MOWER_R = [
+  "......cc........",
+  ".....ccs........",
+  "......ss........",
+  ".....bbb........",
+  "....bbbb........",
+  "...g.bbb........",
+  "...ggbbbb..y....",
+  "...rrrrrrrrrr...",
+  "..rrrrrrrrrrrr..",
+  ".drrrrrrrrrrrd..",
+  ".kkkddddddddkk..",
+  "kkkkkdddddkkkkk.",
+  "kxxkk.....kxxk..",
+  ".kkk.......kk...",
+];
+const MOWER_D = [
+  "....cccc....",
+  "....ssss....",
+  "...bbbbbb...",
+  "..gbbbbbbg..",
+  "..grrrrrrg..",
+  "..rrrrrrrr..",
+  ".rryrrrryrr.",
+  ".rrrrrrrrrr.",
+  "krrddddddrrk",
+  "kkrddddddrkk",
+  "kk.dddddd.kk",
+  "kk........kk",
+];
+const MOWER_U = [
+  "....cccc....",
+  "...bbbbbb...",
+  "..bbbbbbbb..",
+  "..bddddddb..",
+  "..rrrrrrrr..",
+  ".rrrrrrrrrr.",
+  ".rrrrrrrrrr.",
+  "krrrrrrrrrrk",
+  "kkrrrrrrrrkk",
+  "kk.rrrrrr.kk",
+  "kk........kk",
+];
+const SQ1 = [
+  "tt........",
+  "ttt...aa..",
+  ".ttt.aaka.",
+  ".tt.aaaa..",
+  "..taaaaa..",
+  "...aaaa...",
+  "..aa.aa...",
+  "..a...a...",
+];
+const SQ2 = [
+  "..........",
+  "tt....aa..",
+  "ttt..aaka.",
+  ".ttt.aaa..",
+  "..ttaaaa..",
+  "...aaaa...",
+  "...aaa....",
+  "..a..a....",
+];
+const HOLE = [
+  "...eeeeee...",
+  ".eehhhhhhee.",
+  "ehhkkkkkkhhe",
+  "ehkkkkkkkkhe",
+  "ehhkkkkkkhhe",
+  ".eehhhhhhee.",
+];
+const GNOME = [
+  "...rr...",
+  "..rrrr..",
+  ".rrrrrr.",
+  "..ssss..",
+  ".wwsswww",
+  ".wwwwww.",
+  "..bbbb..",
+  ".bbbbbb.",
+  ".bbbbbb.",
+  "..k..k..",
+];
+const ICON_SPRAY = [
+  "..kk....",
+  "..uuk...",
+  ".uuuu...",
+  ".uuuu...",
+  ".uwwu...",
+  ".uwwu...",
+  ".uuuu...",
+  "........",
+];
+const ICON_BAG = [
+  "..aa....",
+  ".aaaa...",
+  ".auua...",
+  ".auua...",
+  ".aaaa...",
+  ".aaaa...",
+  ".aaaa...",
+  "........",
+];
+const ICON_MAIL = [
+  "wwwwwww",
+  "wkw.wkw",
+  "w.wkw.w",
+  "w..w..w",
+  "wwwwwww",
+];
+
+/* ---------- deterministic tile noise ---------- */
+function hash(x, y){
+  let h = (x*374761393 + y*668265263) ^ (x<<5);
+  h = (h ^ (h>>13)) * 1274126177;
+  return ((h ^ (h>>16)) >>> 0) / 4294967296;
+}
+
+/* ---------- audio ---------- */
+let AC = null, master = null, humOsc = null, humGain = null, muted = false;
+function initAudio(){
+  if (AC) return;
+  try{
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain(); master.gain.value = 1; master.connect(AC.destination);
+    humOsc = AC.createOscillator(); humOsc.type = 'sawtooth'; humOsc.frequency.value = 50;
+    humGain = AC.createGain(); humGain.gain.value = 0;
+    humOsc.connect(humGain); humGain.connect(master);
+    humOsc.start();
+    mNext = AC.currentTime + 0.1;
+    setInterval(musicTick, 90);
+  }catch(e){ AC = null; }
+}
+function beep(freq, dur, type, vol, when){
+  if (!AC || muted) return;
+  try{
+    const t = AC.currentTime + (when||0);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol||0.06, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t+dur+0.02);
+  }catch(e){}
+}
+function hiss(dur, vol){
+  if (!AC || muted) return;
+  try{
+    const n = Math.floor(AC.sampleRate*dur);
+    const buf = AC.createBuffer(1, n, AC.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<n;i++) d[i] = (Math.random()*2-1)*(1-i/n);
+    const src = AC.createBufferSource(); src.buffer = buf;
+    const g = AC.createGain(); g.gain.value = vol||0.1;
+    src.connect(g); g.connect(master); src.start();
+  }catch(e){}
+}
+const sndMow    = () => beep(880+Math.random()*220, 0.05, 'square', 0.03);
+const sndSpray  = () => hiss(0.25, 0.12);
+const sndHonk   = () => { beep(392,0.12,'square',0.09); beep(311,0.16,'square',0.09,0.12); };
+const sndPickup = () => { beep(523,0.07,'square',0.06); beep(659,0.07,'square',0.06,0.07); beep(784,0.1,'square',0.06,0.14); };
+const sndFix    = () => { beep(196,0.08,'triangle',0.1); beep(262,0.1,'triangle',0.1,0.08); };
+const sndScram  = () => { beep(1200,0.05,'square',0.05); beep(1500,0.05,'square',0.05,0.05); };
+const sndBad    = () => { beep(220,0.2,'sawtooth',0.09); beep(165,0.3,'sawtooth',0.09,0.2); };
+const sndDay    = () => { beep(392,0.1,'triangle',0.08); beep(494,0.1,'triangle',0.08,0.1); beep(587,0.16,'triangle',0.08,0.2); };
+const sndGnome  = () => { beep(659,0.06,'square',0.06); beep(784,0.06,'square',0.06,0.06); beep(988,0.06,'square',0.06,0.12); beep(1319,0.12,'square',0.06,0.18); };
+const sndSting  = () => { beep(330,0.24,'sawtooth',0.07); beep(311,0.24,'sawtooth',0.07,0.24); beep(294,0.24,'sawtooth',0.07,0.48); beep(262,0.5,'sawtooth',0.08,0.72); };
+
+/* ---------- soundtrack: 8-bar chiptune loop, scheduled ahead ---------- */
+const M_TEMPO = 116, M_STEP = 60/M_TEMPO/2;   // eighth notes
+const MEL = [
+  72,76,79,76,81,79,76,79,  76,72,74,76,77,76,74,72,
+  77,81,84,81,79,77,76,74,  76,79,72, 0,76, 0,74, 0,
+  79,83,79,83,84,83,81,79,  77,81,77,81,79,77,76,74,
+  72,76,79,84,83,81,79,77,  76,74,72, 0,72, 0, 0, 0
+];
+const BASS_ROOT = [48,48,53,48,55,53,48,48];  // C C F C G F C C (C3 basis)
+let mNext = 0, mStep = 0;
+function midiHz(n){ return 440*Math.pow(2,(n-69)/12); }
+function mnote(midi, t, dur, type, vol){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = midiHz(midi);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g); g.connect(master);
+  o.start(t); o.stop(t+dur+0.02);
+}
+function mhat(t){
+  const n = Math.floor(AC.sampleRate*0.03);
+  const buf = AC.createBuffer(1, n, AC.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<n;i++) d[i] = (Math.random()*2-1)*(1-i/n);
+  const src = AC.createBufferSource(); src.buffer = buf;
+  const g = AC.createGain(); g.gain.value = 0.012;
+  src.connect(g); g.connect(master); src.start(t);
+}
+function scheduleStep(i, t){
+  const mel = MEL[i];
+  if (mel) mnote(mel, t, M_STEP*0.85, 'square', 0.03);
+  if (i%2 === 0){                              // quarter-note oom-pah bass
+    const bar = (i>>3)%8, s = i%8;
+    let root = BASS_ROOT[bar];
+    if (bar === 6 && s >= 4) root = 55;        // walk to G before the turnaround
+    mnote(s%4 === 0 ? root : root-5, t, M_STEP*1.6, 'triangle', 0.05);
+  } else mhat(t);
+}
+function musicTick(){
+  if (!AC) return;
+  while (mNext < AC.currentTime + 0.25){
+    if (!muted && (state === 'title' || state === 'play') && !paused)
+      scheduleStep(mStep, mNext);
+    mNext += M_STEP; mStep = (mStep+1)%64;
+  }
+}
+
+/* ---------- state ---------- */
+const DAY_LEN = 40;
+const SPRAY_EVERY = 8, FERT_EVERY = 12, MAXR = 9;
+
+let state = 'title';           // title | play | over
+let tiles, player, squirrels, parts, floats, announce;
+let day, dayT, score, mowCount, sprayN, fertN, sprayProg, fertProg;
+let strikes, complaint, health, gnome, tSinceStart, hoaActive;
+let weedTimer, squirrelTimer, dryTimer, paused = false;
+let titleMowerX = -40;
+let shake = 0;
+
+function tileAt(tx, ty){ return (tx>=0 && ty>=0 && tx<GW && ty<GH) ? tiles[ty*GW+tx] : null; }
+
+function reset(){
+  tiles = [];
+  for (let y=0;y<GH;y++) for (let x=0;x<GW;x++){
+    const r = Math.random();
+    tiles.push({
+      g: r<0.70 ? 1 : r<0.92 ? 2 : 3,
+      ground: 0,                 // 0 grass, 1 dirt, 2 hole
+      weed: null,                // {age}
+      t: 20 + Math.random()*30   // next growth
+    });
+  }
+  player = { x: W/2, y: HUD_H + GH*TILE/2, fx: 1, fy: 0, moving: false };
+  squirrels = []; parts = []; floats = []; announce = [];
+  day = 1; dayT = 0; score = 0; mowCount = 0;
+  sprayN = 4; fertN = 3; sprayProg = 0; fertProg = 0;
+  strikes = 0; complaint = 0; health = 1; gnome = null; tSinceStart = 0; hoaActive = false;
+  weedTimer = 12; squirrelTimer = 20; dryTimer = 40;
+  say('DAY 1', 'MOW GRASS FOR SUPPLIES');
+}
+
+function say(big, small){ announce.push({big, small, t: 3}); }
+function float(x, y, str, col){ floats.push({x, y, str, col: col||C.cream, t: 1.4}); }
+function puff(x, y, n, col, spd){
+  for (let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, v = (spd||30)*(0.4+Math.random()*0.8);
+    parts.push({x, y, vx: Math.cos(a)*v, vy: Math.sin(a)*v - 12, t: 0.35+Math.random()*0.3, col});
+  }
+}
+
+/* ---------- input ---------- */
+const keys = { up:false, down:false, left:false, right:false };
+let lastDir = 'right';
+const DIRK = { arrowup:'up', w:'up', arrowdown:'down', s:'down', arrowleft:'left', a:'left', arrowright:'right', d:'right' };
+
+window.addEventListener('keydown', (e) => {
+  initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  const k = e.key.toLowerCase();
+  if (DIRK[k]){ keys[DIRK[k]] = true; lastDir = DIRK[k]; e.preventDefault(); }
+  else if (k === ' '){ e.preventDefault(); if (!e.repeat) action(); }
+  else if (k === 'enter'){ if (state !== 'play'){ reset(); state = 'play'; } }
+  else if (k === 'p' && state === 'play'){ paused = !paused; }
+  else if (k === 'm'){ muted = !muted; if (humGain) humGain.gain.value = 0; }
+});
+window.addEventListener('keyup', (e) => {
+  const k = DIRK[e.key.toLowerCase()];
+  if (k) keys[k] = false;
+});
+
+/* touch pads */
+document.querySelectorAll('#dpad button[data-k]').forEach(b => {
+  const k = b.dataset.k;
+  const on  = (e) => { e.preventDefault(); initAudio(); if (AC && AC.state==='suspended') AC.resume();
+                       if (state !== 'play'){ reset(); state = 'play'; return; } keys[k] = true; lastDir = k; };
+  const off = (e) => { e.preventDefault(); keys[k] = false; };
+  b.addEventListener('pointerdown', on);
+  b.addEventListener('pointerup', off);
+  b.addEventListener('pointercancel', off);
+  b.addEventListener('pointerleave', off);
+});
+document.getElementById('act').addEventListener('pointerdown', (e) => {
+  e.preventDefault(); initAudio(); if (AC && AC.state==='suspended') AC.resume();
+  if (state !== 'play'){ reset(); state = 'play'; } else action();
+});
+
+/* ---------- context action ---------- */
+function findAction(){
+  const ptx = Math.floor(player.x/TILE), pty = Math.floor((player.y-HUD_H)/TILE);
+  let weedHit = null, fixHit = null, best1 = 9, best2 = 9;
+  for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){
+    const t = tileAt(ptx+dx, pty+dy);
+    if (!t) continue;
+    const d = Math.abs(dx)+Math.abs(dy);
+    if (t.weed && d < best1){ best1 = d; weedHit = {t, tx:ptx+dx, ty:pty+dy}; }
+    if (t.ground !== 0 && d < best2){ best2 = d; fixHit = {t, tx:ptx+dx, ty:pty+dy}; }
+  }
+  if (weedHit) return {type:'weed', ...weedHit};
+  if (fixHit)  return {type:'fix',  ...fixHit};
+  return null;
+}
+function action(){
+  if (state !== 'play' || paused) return;
+  const a = findAction();
+  if (a && a.type === 'weed'){
+    if (sprayN > 0){
+      sprayN--; a.t.weed = null; score += 20; sndSpray();
+      const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
+      puff(cx, cy, 10, '#d7f0b9', 26); float(cx, cy-6, '+20', C.accent);
+    } else { float(player.x, player.y-14, 'OUT OF SPRAY!', C.bad); sndBad(); }
+    return;
+  }
+  if (a && a.type === 'fix'){
+    if (fertN > 0){
+      fertN--; a.t.ground = 0; a.t.g = 0; a.t.t = 14 + Math.random()*20;
+      score += 15; sndFix();
+      const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
+      puff(cx, cy, 10, C.dirt, 30); float(cx, cy-6, '+15', C.accent);
+    } else { float(player.x, player.y-14, 'NEED FERTILIZER!', C.bad); sndBad(); }
+    return;
+  }
+  // honk
+  sndHonk();
+  parts.push({x:player.x, y:player.y, ring:1, t:0.4, col:C.cream});
+  let scared = false;
+  for (const s of squirrels){
+    if (s.state !== 'flee' && Math.hypot(s.x-player.x, s.y-player.y) < 95){
+      startFlee(s); scared = true;
+    }
+  }
+  if (scared){ score += 10; float(player.x, player.y-14, 'SCRAM! +10', C.warn); sndScram(); }
+}
+function startFlee(s){
+  s.state = 'flee';
+  s.tx = s.x < W/2 ? -20 : W+20;
+  s.ty = s.y;
+}
+
+/* ---------- update ---------- */
+function update(dt){
+  tSinceStart += dt;
+  if (state !== 'play' || paused) return;
+
+  /* day cycle */
+  dayT += dt;
+  if (dayT >= DAY_LEN){
+    dayT = 0; day++; score += 100;
+    say('DAY ' + day, 'GRASS GROWS FASTER  +100');
+    sndDay();
+  }
+  const growthMult = 1 + 0.10*(day-1);
+
+  /* movement */
+  let vx = 0, vy = 0;
+  if (keys.up) vy -= 1; if (keys.down) vy += 1;
+  if (keys.left) vx -= 1; if (keys.right) vx += 1;
+  player.moving = (vx || vy);
+  if (player.moving){
+    const inv = 1/Math.hypot(vx, vy);
+    vx *= inv; vy *= inv;
+    const SPD = 88;
+    player.x = Math.max(8, Math.min(W-8, player.x + vx*SPD*dt));
+    player.y = Math.max(HUD_H+8, Math.min(H-8, player.y + vy*SPD*dt));
+    if (Math.abs(vx) >= Math.abs(vy)) { player.fx = vx<0?-1:1; player.fy = 0; }
+    else { player.fx = 0; player.fy = vy<0?-1:1; }
+
+    /* mow the tile under the deck */
+    const mx = Math.floor((player.x + player.fx*5)/TILE);
+    const my = Math.floor((player.y + player.fy*5 - HUD_H)/TILE);
+    const t = tileAt(mx, my);
+    if (t && t.ground === 0 && t.g > 0){
+      const wasTall = t.g >= 2;
+      t.g = 0; t.t = (26 + Math.random()*26)/growthMult;
+      mowCount++; score += wasTall ? 5 : 2;
+      sndMow();
+      puff(mx*TILE+8, HUD_H+my*TILE+10, 3, C.g2t, 34);
+      {
+        sprayProg += wasTall ? 2 : 1; fertProg += wasTall ? 2 : 1;
+        if (sprayProg >= SPRAY_EVERY){
+          sprayProg = 0;
+          if (sprayN < MAXR){ sprayN++; float(player.x, player.y-14, '+1 SPRAY', C.accent); }
+          else { score += 25; float(player.x, player.y-14, 'FULL +25', C.accent); }
+          sndPickup();
+        }
+        if (fertProg >= FERT_EVERY){
+          fertProg = 0;
+          if (fertN < MAXR){ fertN++; float(player.x, player.y-14, '+1 FERTILIZER', C.warn); }
+          else { score += 25; float(player.x, player.y-14, 'FULL +25', C.warn); }
+          sndPickup();
+        }
+      }
+    }
+    /* gnome pickup */
+    if (gnome && Math.hypot(player.x-gnome.x, player.y-gnome.y) < 12){
+      sprayN = Math.min(MAXR, sprayN+1); fertN = Math.min(MAXR, fertN+1); score += 50;
+      float(gnome.x, gnome.y-10, 'LUCKY GNOME! +50', C.warn);
+      puff(gnome.x, gnome.y, 14, '#f2d24b', 40);
+      sndGnome(); gnome = null;
+    }
+  }
+  if (humGain) humGain.gain.value = (muted || !player.moving) ? 0 :
+      0.028 + 0.006*Math.sin(tSinceStart*11);
+  if (humOsc) humOsc.frequency.value = player.moving ? 62 : 50;
+
+  /* growth */
+  for (let i=0;i<tiles.length;i++){
+    const t = tiles[i];
+    if (t.ground === 0 && t.g < 3){
+      t.t -= dt*growthMult;
+      if (t.t <= 0){ t.g++; t.t = 26 + Math.random()*26; }
+    }
+    if (t.weed){
+      t.weed.age += dt;
+      if (t.weed.age > 12 && Math.random() < dt/10){
+        const x = i%GW, y = (i/GW)|0;
+        const nx = x + (Math.random()<0.5?-1:1), ny = y + (Math.random()<0.5?-1:1);
+        const n = tileAt(nx, ny);
+        if (n && !n.weed && n.ground === 0) n.weed = {age:0};
+      }
+    }
+  }
+
+  /* spawns */
+  weedTimer -= dt;
+  if (weedTimer <= 0){
+    weedTimer = Math.max(6, 14*Math.pow(0.92, day-1)) * (0.7+Math.random()*0.6);
+    const cand = tiles[(Math.random()*tiles.length)|0];
+    if (!cand.weed && cand.ground === 0) cand.weed = {age:0};
+  }
+  squirrelTimer -= dt;
+  if (squirrelTimer <= 0 && squirrels.length < 3){
+    squirrelTimer = Math.max(12, 24*Math.pow(0.94, day-1)) * (0.7+Math.random()*0.6);
+    const fromLeft = Math.random() < 0.5;
+    squirrels.push({
+      x: fromLeft ? -12 : W+12,
+      y: HUD_H + 20 + Math.random()*(GH*TILE-40),
+      state:'walk', digT:0, digs:0, tx:0, ty:0, anim:0
+    });
+    pickDigSpot(squirrels[squirrels.length-1]);
+  }
+  if (day >= 2){
+    dryTimer -= dt;
+    if (dryTimer <= 0){
+      dryTimer = Math.max(18, 34 - day*2);
+      const i = (Math.random()*tiles.length)|0;
+      const t = tiles[i];
+      if (t.ground === 0){
+        t.ground = 1; t.g = 0; t.weed = null;
+        float(i%GW*TILE+8, HUD_H+((i/GW)|0)*TILE+8, 'DRY PATCH!', C.warn);
+      }
+    }
+  }
+  /* gnome */
+  if (!gnome && Math.random() < dt/45){
+    gnome = { x: 24 + Math.random()*(W-48), y: HUD_H + 24 + Math.random()*(GH*TILE-48), t: 12 };
+    float(gnome.x, gnome.y-12, 'A GNOME APPEARS', C.cream);
+  }
+  if (gnome){ gnome.t -= dt; if (gnome.t <= 0) gnome = null; }
+
+  /* squirrels */
+  for (let i=squirrels.length-1;i>=0;i--){
+    const s = squirrels[i];
+    s.anim += dt;
+    const pd = Math.hypot(s.x-player.x, s.y-player.y);
+    if (s.state !== 'flee' && pd < 52){ startFlee(s); score += 10; float(s.x, s.y-10, 'SCRAM! +10', C.warn); sndScram(); }
+    if (s.state === 'walk'){
+      const dx = s.tx-s.x, dy = s.ty-s.y, d = Math.hypot(dx, dy);
+      if (d < 3){ s.state = 'dig'; s.digT = 2.4; }
+      else { s.x += dx/d*42*dt; s.y += dy/d*42*dt; }
+    } else if (s.state === 'dig'){
+      s.digT -= dt;
+      if (Math.random() < dt*8) puff(s.x, s.y+4, 1, C.dirt, 26);
+      if (s.digT <= 0){
+        const tx = Math.floor(s.x/TILE), ty = Math.floor((s.y-HUD_H)/TILE);
+        const t = tileAt(tx, ty);
+        if (t){ t.ground = 2; t.g = 0; t.weed = null; }
+        sndBad(); shake = 0.25;
+        float(s.x, s.y-10, 'HOLE DUG!', C.bad);
+        s.digs++;
+        if (s.digs >= 3) startFlee(s); else pickDigSpot(s);
+      }
+    } else { // flee
+      const dx = s.tx-s.x, dy = s.ty-s.y, d = Math.hypot(dx, dy);
+      if (d < 6){ squirrels.splice(i,1); continue; }
+      s.x += dx/d*105*dt; s.y += dy/d*105*dt;
+    }
+  }
+
+  /* health + HOA */
+  let good = 0;
+  for (const t of tiles) if (t.ground === 0 && t.g <= 1 && !t.weed) good++;
+  health = good/tiles.length;
+  if (!hoaActive && tSinceStart > 25){
+    hoaActive = true;
+    say('THE HOA IS WATCHING', 'KEEP THE LAWN ABOVE 45%');
+  }
+  if (hoaActive && health < 0.45) complaint += dt * (0.45-health) * 0.20;
+  else complaint = Math.max(0, complaint - dt*0.06);
+  if (complaint >= 1){
+    complaint = 0; strikes++;
+    say('HOA COMPLAINT!', strikes >= 3 ? '' : 'LETTER ' + strikes + ' OF 3 - CLEAN UP!');
+    sndBad(); shake = 0.5;
+    if (strikes >= 3){
+      state = 'over';
+      if (humGain) humGain.gain.value = 0;
+      sndSting();
+    }
+  }
+
+  /* particles & floats & announcements */
+  for (let i=parts.length-1;i>=0;i--){
+    const p = parts[i]; p.t -= dt;
+    if (p.t <= 0){ parts.splice(i,1); continue; }
+    if (!p.ring){ p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 60*dt; }
+  }
+  for (let i=floats.length-1;i>=0;i--){
+    const f = floats[i]; f.t -= dt; f.y -= 14*dt;
+    if (f.t <= 0) floats.splice(i,1);
+  }
+  for (let i=announce.length-1;i>=0;i--){
+    announce[i].t -= dt;
+    if (announce[i].t <= 0) announce.splice(i,1);
+  }
+  if (shake > 0) shake -= dt;
+}
+function pickDigSpot(s){
+  s.tx = 24 + Math.random()*(W-48);
+  s.ty = HUD_H + 20 + Math.random()*(GH*TILE-40);
+}
+
+/* ---------- render ---------- */
+function drawTiles(){
+  for (let y=0;y<GH;y++) for (let x=0;x<GW;x++){
+    const t = tiles[y*GW+x];
+    const px = x*TILE, py = HUD_H + y*TILE;
+    if (t.ground === 1){                       // dirt
+      ctx.fillStyle = C.dirt; ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillStyle = C.dirtSp;
+      for (let i=0;i<4;i++){
+        const r1 = hash(x*7+i, y*11), r2 = hash(x*13, y*5+i);
+        ctx.fillRect(px + (r1*14|0), py + (r2*14|0), 2, 1);
+      }
+    } else if (t.ground === 2){                // hole
+      ctx.fillStyle = C.dirt; ctx.fillRect(px, py, TILE, TILE);
+      drawMap(HOLE, px+2, py+5, false);
+      ctx.fillStyle = C.dirtSp;
+      ctx.fillRect(px+1, py+2, 3, 2); ctx.fillRect(px+12, py+12, 3, 2);
+    } else {                                   // grass
+      if (t.g === 0){
+        ctx.fillStyle = (x%2===0) ? C.g0a : C.g0b;
+        ctx.fillRect(px, py, TILE, TILE);
+      } else if (t.g === 1){
+        ctx.fillStyle = C.g1; ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = C.g2;
+        for (let i=0;i<3;i++){
+          const r1 = hash(x*3+i, y*17), r2 = hash(x*19, y*3+i);
+          ctx.fillRect(px + (r1*14|0), py + (r2*13|0), 1, 2);
+        }
+      } else {
+        ctx.fillStyle = t.g === 2 ? C.g2 : C.g3;
+        ctx.fillRect(px, py, TILE, TILE);
+        const tuft = t.g === 2 ? C.g2t : C.g3t;
+        ctx.fillStyle = tuft;
+        const n = t.g === 2 ? 4 : 6;
+        for (let i=0;i<n;i++){
+          const r1 = hash(x*3+i, y*17+i), r2 = hash(x*19+i, y*3);
+          const tx2 = px + (r1*14|0), ty2 = py + (r2*11|0);
+          ctx.fillRect(tx2, ty2, 1, t.g === 2 ? 3 : 4);
+          if (t.g === 3 && i%2===0){ ctx.fillStyle = C.seed; ctx.fillRect(tx2, ty2-1, 1, 1); ctx.fillStyle = tuft; }
+        }
+      }
+    }
+    if (t.weed) drawWeed(px, py, t.weed.age);
+  }
+}
+function drawWeed(px, py, age){
+  const cx = px+7, base = py+13;
+  ctx.fillStyle = '#2c6b1e';
+  ctx.fillRect(cx-3, base, 3, 2); ctx.fillRect(cx+2, base, 3, 2);
+  if (age < 5){
+    ctx.fillRect(cx, base-2, 1, 3);
+    ctx.fillStyle = C.warn; ctx.fillRect(cx, base-3, 1, 1);
+  } else if (age < 14){
+    ctx.fillRect(cx, base-6, 1, 7);
+    ctx.fillStyle = '#f2d24b';
+    ctx.fillRect(cx-1, base-9, 3, 3);
+    ctx.fillStyle = '#e0a72e';
+    ctx.fillRect(cx, base-8, 1, 1);
+  } else {
+    ctx.fillRect(cx, base-7, 1, 8);
+    ctx.fillStyle = '#f5f2e8';
+    ctx.fillRect(cx-1, base-10, 3, 3);
+    ctx.fillRect(cx-2, base-9, 5, 1);
+    ctx.fillRect(cx, base-11, 1, 5);
+  }
+}
+function drawMower(x, y){
+  const bob = player.moving ? Math.round(Math.sin(tSinceStart*22))*1 : 0;
+  if (player.fy === 0){
+    drawMap(MOWER_R, Math.round(x)-8, Math.round(y)-7+bob, player.fx < 0);
+  } else if (player.fy > 0){
+    drawMap(MOWER_D, Math.round(x)-6, Math.round(y)-6+bob, false);
+  } else {
+    drawMap(MOWER_U, Math.round(x)-6, Math.round(y)-6+bob, false);
+  }
+}
+function drawSquirrel(s){
+  const map = (Math.floor(s.anim*8)%2===0) ? SQ1 : SQ2;
+  const flip = (s.state === 'flee' ? s.tx < s.x : player.x < s.x);
+  drawMap(map, Math.round(s.x)-5, Math.round(s.y)-4, flip);
+  if (s.state === 'dig' && Math.floor(s.anim*10)%2===0){
+    ctx.fillStyle = C.dirt;
+    ctx.fillRect(Math.round(s.x)-2, Math.round(s.y)+4, 4, 2);
+  }
+}
+function meter(x, y, w, frac, col){
+  ctx.fillStyle = C.hudLine; ctx.fillRect(x, y, w, 3);
+  ctx.fillStyle = col; ctx.fillRect(x, y, Math.round(w*Math.max(0, Math.min(1, frac))), 3);
+}
+function drawHUD(){
+  ctx.fillStyle = C.hudBg; ctx.fillRect(0, 0, W, HUD_H);
+  ctx.fillStyle = C.hudLine; ctx.fillRect(0, HUD_H-2, W, 2);
+
+  const hcol = health >= 0.6 ? C.accent : health >= 0.45 ? C.warn : C.bad;
+  drawText('LAWN', 8, 5, 1, C.cream);
+  drawText(Math.round(health*100) + '%', 8, 14, 2, hcol);
+
+  drawText('DAY', 70, 5, 1, C.cream);
+  drawText(String(day), 70, 14, 2, C.cream);
+  meter(70, 27, 22, dayT/DAY_LEN, C.accent);
+
+  drawMap(ICON_SPRAY, 108, 8, false);
+  drawText('x' + sprayN, 118, 10, 2, sprayN === 0 ? C.bad : C.cream);
+  meter(108, 27, 34, sprayProg/SPRAY_EVERY, '#7db95a');
+
+  drawMap(ICON_BAG, 158, 8, false);
+  drawText('x' + fertN, 168, 10, 2, fertN === 0 ? C.bad : C.cream);
+  meter(158, 27, 34, fertProg/FERT_EVERY, C.warn);
+
+  drawText('HOA', 212, 5, 1, C.cream);
+  for (let i=0;i<3;i++){
+    if (i < strikes) drawMap(ICON_MAIL, 212 + i*10, 14, false);
+    else { ctx.strokeStyle = '#3a5a3c'; ctx.strokeRect(212.5 + i*10, 14.5, 6, 4); }
+  }
+  const cflash = complaint > 0.6 && Math.floor(tSinceStart*4)%2===0;
+  meter(212, 27, 28, complaint, cflash ? C.cream : C.bad);
+
+  const sstr = String(score);
+  drawText('SCORE', W-8-textW('SCORE',1), 5, 1, C.cream);
+  drawText(sstr, W-8-textW(sstr,2), 14, 2, C.cream);
+
+  /* context hint */
+  if (state === 'play'){
+    const a = findAction();
+    let hint = 'SPACE: HONK';
+    if (a && a.type === 'weed') hint = 'SPACE: SPRAY WEED';
+    else if (a && a.type === 'fix') hint = a.t.ground === 2 ? 'SPACE: FILL HOLE' : 'SPACE: RESEED';
+    ctx.fillStyle = 'rgba(16,21,13,0.75)';
+    const hw = textW(hint,1)+8;
+    ctx.fillRect(W/2-hw/2, H-11, hw, 9);
+    drawTextC(hint, W/2, H-9, 1, a ? C.accent : '#a9b694');
+  }
+}
+function drawPlay(){
+  ctx.save();
+  if (shake > 0) ctx.translate((Math.random()*3-1.5)|0, (Math.random()*3-1.5)|0);
+  drawTiles();
+  if (gnome){
+    if (gnome.t > 3 || Math.floor(tSinceStart*6)%2===0)
+      drawMap(GNOME, Math.round(gnome.x)-4, Math.round(gnome.y)-8, false);
+  }
+  for (const s of squirrels) drawSquirrel(s);
+  drawMower(player.x, player.y);
+  for (const p of parts){
+    if (p.ring){
+      ctx.strokeStyle = p.col;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (0.4-p.t)*110+6, 0, Math.PI*2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = p.col;
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 2);
+    }
+  }
+  ctx.restore();
+
+  for (const f of floats){
+    const a = Math.min(1, f.t/0.4);
+    ctx.globalAlpha = a;
+    drawText(f.str, Math.round(f.x - textW(f.str,1)/2), Math.round(f.y), 1, f.col);
+    ctx.globalAlpha = 1;
+  }
+  drawHUD();
+
+  for (const an of announce){
+    const a = Math.min(1, an.t/0.5);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(16,21,13,0.72)';
+    ctx.fillRect(0, 120, W, an.small ? 52 : 36);
+    drawTextC(an.big, W/2, 130, 3, C.cream);
+    if (an.small) drawTextC(an.small, W/2, 152, 1, C.accent);
+    ctx.globalAlpha = 1;
+  }
+  if (paused){
+    ctx.fillStyle = 'rgba(16,21,13,0.7)'; ctx.fillRect(0, 0, W, H);
+    drawTextC('PAUSED', W/2, 150, 3, C.cream);
+    drawTextC('P TO RESUME', W/2, 176, 1, C.accent);
+  }
+  if (muted) drawText('MUTE', W-8-textW('MUTE',1), H-9, 1, '#5a6a52');
+}
+function drawTitle(){
+  ctx.fillStyle = C.night; ctx.fillRect(0, 0, W, H);
+  /* lawn strip */
+  for (let x=0;x<GW;x++){
+    ctx.fillStyle = (x%2===0) ? C.g0a : C.g0b;
+    ctx.fillRect(x*TILE, H-40, TILE, 40);
+  }
+  ctx.fillStyle = C.g2t;
+  for (let i=0;i<40;i++){
+    const r1 = hash(i*7, 3), r2 = hash(i*3, 9);
+    ctx.fillRect((r1*W)|0, H-38+(r2*34|0), 1, 3);
+  }
+  /* title */
+  const t = tSinceStart;
+  drawTextC('LAWNMASTER', W/2+3, 63, 8, '#0a2e12');
+  drawTextC('LAWNMASTER', W/2, 60, 8, C.accent);
+  drawTextC('TURF MAINTENANCE SIMULATOR', W/2, 112, 1, C.cream);
+  drawTextC('MOW. SPRAY. HONK. SURVIVE THE HOA.', W/2, 126, 1, '#a9b694');
+
+  drawTextC('DRIVE: WASD / ARROWS', W/2, 158, 1, '#7d8a6f');
+  drawTextC('SPACE: SPRAY WEEDS - FIX HOLES - HONK AT SQUIRRELS', W/2, 170, 1, '#7d8a6f');
+  drawTextC('MOW GRASS TO EARN SPRAY AND FERTILIZER', W/2, 182, 1, '#7d8a6f');
+  drawTextC('3 HOA LETTERS AND YOU ARE DONE FOR', W/2, 194, 1, '#7d8a6f');
+
+  if (Math.floor(t*2)%2===0) drawTextC('PRESS ENTER TO CLOCK IN', W/2, 226, 2, C.cream);
+
+  /* mower riding across the lawn strip */
+  titleMowerX += 40/60;
+  if (titleMowerX > W+40) titleMowerX = -40;
+  const bob = Math.round(Math.sin(t*20));
+  drawMap(MOWER_R, Math.round(titleMowerX), H-34+bob, false);
+  ctx.fillStyle = C.g0a;
+  ctx.fillRect(0, H-24, Math.max(0, Math.round(titleMowerX)), 6);
+}
+function drawOver(){
+  drawTiles();
+  for (const s of squirrels) drawSquirrel(s);
+  drawMower(player.x, player.y);
+  drawHUD();
+  ctx.fillStyle = 'rgba(16,21,13,0.85)'; ctx.fillRect(0, 0, W, H);
+  drawTextC('CITED BY THE HOA', W/2, 90, 3, C.bad);
+  drawTextC('YOUR MOWER KEYS HAVE BEEN CONFISCATED', W/2, 118, 1, C.cream);
+  drawTextC('DAYS ON THE JOB: ' + day, W/2, 146, 2, C.cream);
+  drawTextC('TILES MOWED: ' + mowCount, W/2, 164, 2, C.cream);
+  drawTextC('FINAL SCORE: ' + score, W/2, 182, 2, C.accent);
+  if (Math.floor(tSinceStart*2)%2===0) drawTextC('PRESS ENTER FOR A NEW CONTRACT', W/2, 220, 1, C.cream);
+}
+
+/* ---------- loop ---------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now-last)/1000);
+  last = now;
+  if (state === 'title') tSinceStart += dt; else update(dt);
+  ctx.clearRect(0, 0, W, H);
+  if (state === 'title') drawTitle();
+  else if (state === 'play') drawPlay();
+  else drawOver();
+  requestAnimationFrame(frame);
+}
+reset();
+state = 'title';
+announce = [];
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
