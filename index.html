@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lawnmaster">
+<meta name="theme-color" content="#10150d">
+<title>Lawnmaster</title>
 </head>
 <body>
 <title>Lawnmaster</title>
@@ -855,6 +861,8 @@ window.addEventListener('keyup', (e) => {
 
 /* touch: floating joystick wherever the finger lands; tap = action */
 const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+const STANDALONE = (typeof navigator !== 'undefined' && navigator.standalone === true) ||
+  !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 
 /* desktop: size the canvas to fill the window, leaving room for the legend.
    mobile: CSS owns sizing entirely (fixed full-viewport container +
@@ -877,7 +885,26 @@ function fitCanvas(){
 }
 let lastVP = '';
 fitCanvas();
-let fsTried = false;
+
+/* mobile letterbox bars: dense hedge instead of dead black */
+(function hedgeBars(){
+  if (!TOUCHCAP) return;
+  try {
+    const pc = document.createElement('canvas');
+    pc.width = 32; pc.height = 32;
+    const g = pc.getContext('2d');
+    const rnd = mulberry(911);
+    g.fillStyle = '#131c0d'; g.fillRect(0, 0, 32, 32);
+    for (let i=0;i<26;i++){
+      g.fillStyle = ['#182610','#1d2e14','#0e1608'][(rnd()*3)|0];
+      g.fillRect(rnd()*30|0, rnd()*30|0, 3+(rnd()*4|0), 2+(rnd()*3|0));
+    }
+    for (let i=0;i<6;i++){ g.fillStyle = '#2a4019'; g.fillRect(rnd()*31|0, rnd()*31|0, 2, 1); }
+    const cab = document.getElementById('cab');
+    cab.style.backgroundImage = 'url(' + pc.toDataURL() + ')';
+    cab.style.backgroundSize = '64px 64px';
+  } catch(e){}
+})();
 const touch = { active:false, id:null, ox:0, oy:0, dx:0, dy:0, t0:0, moved:false };
 function canvasPos(e){
   // object-fit:contain letterboxes on mobile, so map through the fitted rect
@@ -891,9 +918,8 @@ cv.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse') return;         // mouse players have a keyboard
   e.preventDefault();
   initAudio(); if (AC && AC.state === 'suspended') AC.resume();
-  if (TOUCHCAP && !fsTried){                     // best effort: fullscreen + landscape lock
-    fsTried = true;
-    try {
+  if (TOUCHCAP && document.fullscreenEnabled && !document.fullscreenElement){
+    try {                                        // Android: keep asking until it sticks
       const cab = document.getElementById('cab');
       if (cab && cab.requestFullscreen) cab.requestFullscreen().catch(() => {});
       if (screen.orientation && screen.orientation.lock)
@@ -1991,6 +2017,8 @@ function drawTitle(){
   drawTextC('ONE HOA LETTER AND YOU ARE DONE FOR', W/2, 190, 1, '#a3b18c');
   if (Math.floor(t*2)%2===0)
     drawTextC(TOUCHCAP ? 'TAP TO CLOCK IN' : 'PRESS ENTER TO CLOCK IN', W/2, 202, 1, C.accent);
+  if (TOUCHCAP && !STANDALONE)
+    drawTextC('FULL SCREEN: ADD TO HOME SCREEN', W/2, 211, 1, '#8a9a78');
   drawTextC('A HOPE LAWN CO. PRODUCTION', W/2, 222, 1, 'rgba(30,58,18,0.85)');
   if (scoresCache.length)
     drawTextC('BEST: ' + scoresCache[0].s + ' - DAY ' + scoresCache[0].d, W/2, 236, 1, 'rgba(30,58,18,0.85)');
