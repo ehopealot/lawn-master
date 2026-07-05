@@ -4,7 +4,7 @@ const ctxStub = new Proxy({}, {
   get: (t, p) => (p === 'canvas' ? {} : noop),
   set: () => true
 });
-const elStub = { getContext: () => ctxStub, addEventListener: noop, dataset: {} };
+const elStub = { getContext: () => ctxStub, addEventListener: noop, dataset: {}, style: {} };
 global.document = {
   getElementById: () => elStub,
   querySelectorAll: () => [],

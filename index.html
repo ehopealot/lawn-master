@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 </head>
 <body>
 <title>Lawnmaster</title>
@@ -31,8 +31,7 @@
     line-height:0;
   }
   canvas{
-    width:min(94vw,960px);
-    max-height:74vh;
+    display:block;
     image-rendering:pixelated;
     image-rendering:crisp-edges;
     touch-action:none;
@@ -40,6 +39,21 @@
     -webkit-touch-callout:none;
   }
   html,body{overscroll-behavior:none;}
+  #rotate{
+    position:fixed;inset:0;z-index:10;display:none;
+    align-items:center;justify-content:center;text-align:center;
+    background:var(--hedge);color:var(--cream);
+    font-size:13px;letter-spacing:.18em;line-height:2.2;
+  }
+  #rotate .arr{font-size:42px;display:block;letter-spacing:0;}
+  @media (pointer:coarse){
+    body{padding:0;background:#000;}
+    .legend{display:none;}
+    #cab{border:none;outline:none;box-shadow:none;background:#000;}
+  }
+  @media (pointer:coarse) and (orientation:portrait){
+    #rotate{display:flex;}
+  }
   .legend{
     font-size:11px;letter-spacing:.12em;text-transform:uppercase;
     text-align:center;line-height:1.9;max-width:640px;
@@ -54,6 +68,8 @@
 </style>
 
 <div id="cab"><canvas id="game" width="480" height="336"></canvas></div>
+
+<div id="rotate"><div><span class="arr">&#8635;</span>ROTATE YOUR PHONE<br>THE LAWN IS WIDE</div></div>
 
 <div class="legend">
   <b>drive</b> <span class="k">W A S D</span>/<span class="k">arrows</span>
@@ -835,6 +851,20 @@ window.addEventListener('keyup', (e) => {
 
 /* touch: floating joystick wherever the finger lands; tap = action */
 const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+/* size the canvas to fill the window (desktop keeps room for the legend) */
+function fitCanvas(){
+  const vw = window.innerWidth || 960, vh = window.innerHeight || 700;
+  const availW = TOUCHCAP ? vw : Math.min(vw - 32, 1440);
+  const availH = TOUCHCAP ? vh : vh - 130;
+  const s = Math.max(0.5, Math.min(availW/W, availH/H));
+  cv.style.width = Math.round(W*s) + 'px';
+  cv.style.height = Math.round(H*s) + 'px';
+}
+window.addEventListener('resize', fitCanvas);
+window.addEventListener('orientationchange', fitCanvas);
+fitCanvas();
+let fsTried = false;
 const touch = { active:false, id:null, ox:0, oy:0, dx:0, dy:0, t0:0, moved:false };
 function canvasPos(e){
   const r = cv.getBoundingClientRect();
@@ -845,6 +875,15 @@ cv.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse') return;         // mouse players have a keyboard
   e.preventDefault();
   initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  if (TOUCHCAP && !fsTried){                     // best effort: fullscreen + landscape lock
+    fsTried = true;
+    try {
+      const cab = document.getElementById('cab');
+      if (cab && cab.requestFullscreen) cab.requestFullscreen().catch(() => {});
+      if (screen.orientation && screen.orientation.lock)
+        screen.orientation.lock('landscape').catch(() => {});
+    } catch(err){}
+  }
   if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; return; }
   if (!touch.active){
     const p = canvasPos(e);
