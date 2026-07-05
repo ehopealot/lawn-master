@@ -1,5 +1,7 @@
 # 🚜 Lawnmaster
 
+https://ehopealot.github.io/lawn-master/
+
 A retro pixel-art lawn-care arcade game in a single HTML file. Mow the lawn,
 spray the weeds, honk at the squirrels, bag what the dog leaves behind — and
 whatever you do, don't let the HOA catch the yard below code.
