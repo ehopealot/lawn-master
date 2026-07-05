@@ -785,12 +785,12 @@ function reset(){
   squirrels = []; parts = []; floats = []; announce = [];
   day = 1; dayT = 0; score = 0; mowCount = 0;
   sprayN = 4; fertN = 3; sprayProg = 0; fertProg = 0;
-  bagN = 2; bagProg = 0; dogs = []; dogTimer = 18 + Math.random()*10;
-  eventTimer = 50 + Math.random()*20; activeEvent = null; eventT = 0; droughtTick = 0;
+  bagN = 2; bagProg = 0; dogs = []; dogTimer = 11 + Math.random()*6;
+  eventTimer = 30 + Math.random()*12; activeEvent = null; eventT = 0; droughtTick = 0;
   lastRank = -1;
   strikes = 0; complaint = 0; health = 1; gnomes = []; tSinceStart = 0;
   hoaActive = false; complaintWarned = false;
-  weedTimer = 12; squirrelTimer = 20; dryTimer = 40;
+  weedTimer = 8; squirrelTimer = 12; dryTimer = 24;
   butterflies = []; exhaustT = 0; buzzT = 0; beerCD = 0;
   const s0 = seasonFor(1);
   if (curSeason !== s0){ curSeason = s0; buildGrassTiles(s0); }
@@ -1156,7 +1156,7 @@ function update(dt){
   /* spawns */
   weedTimer -= dt;
   if (weedTimer <= 0){
-    weedTimer = Math.max(6, 14*Math.pow(0.92, lvl-1)) * (0.7+Math.random()*0.6);
+    weedTimer = Math.max(4, 9*Math.pow(0.92, lvl-1)) * (0.7+Math.random()*0.6);
     if (!curSeason.winter){
       const cand = tiles[(Math.random()*tiles.length)|0];
       if (!cand.weed && cand.ground === 0) cand.weed = {age:0};
@@ -1164,7 +1164,7 @@ function update(dt){
   }
   squirrelTimer -= dt;
   if (squirrelTimer <= 0 && squirrels.length < 3){
-    squirrelTimer = Math.max(12, 24*Math.pow(0.94, lvl-1)) * (0.7+Math.random()*0.6);
+    squirrelTimer = Math.max(7, 15*Math.pow(0.94, lvl-1)) * (0.7+Math.random()*0.6);
     const fromLeft = Math.random() < 0.5;
     squirrels.push({
       x: fromLeft ? -12 : W+12,
@@ -1176,7 +1176,7 @@ function update(dt){
   if (day >= 2 && !curSeason.winter){
     dryTimer -= dt;
     if (dryTimer <= 0){
-      dryTimer = Math.max(18, 34 - lvl*2);
+      dryTimer = Math.max(11, 20 - lvl*1.2);
       const i = (Math.random()*tiles.length)|0;
       const t = tiles[i];
       if (t.ground === 0){
@@ -1186,7 +1186,7 @@ function update(dt){
     }
   }
   /* gnomes */
-  if (gnomes.length === 0 && Math.random() < dt/45){
+  if (gnomes.length === 0 && Math.random() < dt/30){
     const gx = 24 + Math.random()*(W-48), gy = HUD_H + 24 + Math.random()*(GH*TILE-48);
     if (!inHouse(gx, gy, 10)){
       gnomes.push({ x: gx, y: gy, t: 12, ph: 0 });
@@ -1244,7 +1244,7 @@ function update(dt){
   if (day >= 2){
     eventTimer -= dt;
     if (eventTimer <= 0){
-      eventTimer = 45 + Math.random()*30;
+      eventTimer = 27 + Math.random()*18;
       const opts = ['stampede', 'dogpark', 'gnomeparty'];
       if (curSeason === SEASONS[0]) opts.push('drought');   // droughts are a summer thing
       triggerEvent(opts[(Math.random()*opts.length)|0]);
@@ -1271,7 +1271,7 @@ function update(dt){
   if (dogs.length === 0){
     dogTimer -= dt;
     if (dogTimer <= 0){
-      dogTimer = 26 + Math.random()*20;
+      dogTimer = 16 + Math.random()*12;
       dogs.push(spawnDog(day >= 3 && Math.random() < 0.25, false));
     }
   }
