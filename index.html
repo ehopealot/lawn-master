@@ -229,13 +229,13 @@ const MOWER_U = [
 const toBlower = m => m.map(r => r.replace(/r/g,'n').replace(/d/g,'N').replace(/u/g,'c'));
 const BLOWER_D = toBlower(MOWER_D), BLOWER_U = toBlower(MOWER_U);
 const BLOWER_R = [
-  "kkk...............",
-  "kgk...............",
-  ".kgk..w...........",
-  ".kgk...kccck......",
-  "..kgk..kwwwwk.....",
-  "..kgk...kssk......",
-  "...kgkkkbbbbk.....",
+  "kkkkk.............",
+  ".kggk.............",
+  "..kgk.wcc.........",
+  "..kgk..kcccck.....",
+  "...kgk.kwwwwk.....",
+  "...kgk..kssk......",
+  "....kgkkbbbbk.....",
   "...kkbbbbbbbkk....",
   "..knnnnnnnnkNwwNk.",
   "..knnnnnnnnkNNwwk.",
@@ -1142,7 +1142,7 @@ function update(dt){
       if (curSeason.winter){
         t.snow = 0; t.t = (52 + Math.random()*52)/growthMult; t.cut = tSinceStart;
         for (let i=0;i<7;i++)                  // snow arcs out the back chute
-          parts.push({ x: player.x - player.fx*4, y: player.y - player.fy*4 - 6,
+          parts.push({ x: player.x - player.fx*6, y: player.y - player.fy*6 - 10,
             vx: -player.fx*(26 + Math.random()*22) + (Math.random()*14-7),
             vy: -player.fy*(26 + Math.random()*22) - 24 - Math.random()*18,
             t: 0.55, t0: 0.55, col: i%2 ? '#ffffff' : '#dce8f0', size: 2 });
