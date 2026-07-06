@@ -436,7 +436,7 @@ const SEASONS = [
   { name:'SUMMER',      mix:'#000000', k:0,    leaves:false, winter:false, msg:'FRESH GREEN RETURNS' },
   { name:'LATE SUMMER', mix:'#b8a83c', k:0.12, leaves:false, winter:false, msg:'THE LAWN TURNS GOLDEN' },
   { name:'AUTUMN',      mix:'#c07a30', k:0.26, leaves:true,  winter:false, msg:'LEAVES DRIFT ONTO THE LAWN' },
-  { name:'WINTER',      mix:'#b8ccd8', k:0.35, leaves:false, winter:true,  msg:'SNOW BLANKETS THE YARD' },
+  { name:'WINTER',      mix:'#b8ccd8', k:0.35, leaves:false, winter:true,  msg:'THE HOA NOW INSPECTS SNOW CLEARING' },
 ];
 let seasonShift = 0;   // secret: 3 = clock in mid-winter (cmd/ctrl-enter)
 function seasonFor(d){ return SEASONS[(Math.floor((d-1)/4) + seasonShift) % 4]; }   // 4 days per season
@@ -1376,7 +1376,7 @@ function update(dt){
     say('THE HOA IS WATCHING', 'KEEP THE LAWN ABOVE 45%');
   }
   if (hoaActive && health < 0.45){
-    complaint += dt * (0.45-health) * 0.20;
+    complaint += dt * (0.45-health) * 0.32;
     if (!complaintWarned && complaint > 0.5){
       complaintWarned = true;
       say('THE HOA IS DRAFTING A LETTER', 'GET THE YARD ABOVE 45% NOW');
@@ -1790,7 +1790,9 @@ function drawHUD(){
   ctx.fillStyle = C.hudEdge; ctx.fillRect(0, 0, W, 1);
   ctx.fillStyle = C.hudLine; ctx.fillRect(0, HUD_H-2, W, 2);
 
-  const hcol = health >= 0.6 ? C.accent : health >= 0.45 ? C.warn : C.bad;
+  let hcol = health >= 0.6 ? C.accent : health >= 0.45 ? C.warn : C.bad;
+  if (hoaActive && health < 0.45 && Math.floor(tSinceStart*3)%2 === 0)
+    hcol = C.cream;                              // in violation: the % blinks
   const cflash = complaint > 0.6 && Math.floor(tSinceStart*4)%2===0;
   const sstr = String(score);
 

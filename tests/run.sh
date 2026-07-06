@@ -24,7 +24,7 @@ awk '/<script>/{f=1;next}/<\/script>/{f=0}f' ../index.html > "$tmp/game.js"
 node --check "$tmp/game.js"
 echo "== syntax OK =="
 
-for driver in render smoke balance; do
+for driver in render smoke balance idle; do
   cat stub.js "$tmp/game.js" "$driver.js" > "$tmp/test-$driver.js"
   echo "== $driver =="
   node "$tmp/test-$driver.js"
