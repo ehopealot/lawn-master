@@ -909,7 +909,7 @@ function reset(){
 }
 
 function say(big, small){ announce.push({big, small, t: 3}); }
-function float(x, y, str, col){ floats.push({x, y, str, col: col||C.cream, t: 1.8}); }
+function float(x, y, str, col){ floats.push({x, y, str, col: col||C.cream, t: 1.4}); }
 function puff(x, y, n, col, spd){
   for (let i=0;i<n;i++){
     const a = Math.random()*Math.PI*2, v = (spd||30)*(0.4+Math.random()*0.8);
@@ -1600,8 +1600,7 @@ function update(dt){
     else if (!p.ring){ p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 60*dt; }
   }
   for (let i=floats.length-1;i>=0;i--){
-    const f = floats[i]; f.t -= dt;
-    f.y -= (f.t > 1.4 ? 34 : 8)*dt;            // pop up fast, then drift
+    const f = floats[i]; f.t -= dt; f.y -= 14*dt;
     if (f.t <= 0) floats.splice(i,1);
   }
   for (let i=announce.length-1;i>=0;i--){
@@ -2190,13 +2189,12 @@ function drawPlay(){
 
   for (const f of floats){
     const a = Math.min(1, f.t/0.4);
-    const fw = textW(f.str, 2);
-    const fx = Math.round(Math.max(4, Math.min(W-4-fw, f.x - fw/2)));
+    const fw = textW(f.str, 1);
+    const fx = Math.round(Math.max(3, Math.min(W-3-fw, f.x - fw/2)));
     const fy = Math.round(f.y);
     ctx.globalAlpha = a;
-    for (const o of [[-1,0],[1,0],[0,-1],[0,1]])         // dark outline for pop
-      drawText(f.str, fx+o[0], fy+o[1], 2, '#12200f');
-    drawText(f.str, fx, fy, 2, f.col);
+    drawText(f.str, fx+1, fy+1, 1, '#12200f');   // soft drop shadow
+    drawText(f.str, fx, fy, 1, f.col);
     ctx.globalAlpha = 1;
   }
   drawHUD();
