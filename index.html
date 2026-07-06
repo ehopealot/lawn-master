@@ -1163,7 +1163,7 @@ function update(dt){
       curSong = SONGS[SEASONS.indexOf(ns)];    // season theme takes over
       mStep = 0;
       if (ns.winter){                          // first frost kills the weeds
-        for (const t2 of tiles){ t2.weed = null; t2.t = 24 + Math.random()*32; }
+        for (const t2 of tiles){ t2.weed = null; t2.t = 35 + Math.random()*45; }
         flashT = 0.7;
         float(player.x, player.y-16, 'SNOWBLOWER MODE!', C.accent);
         tip('winter', 'WINTER: BLOW SNOW LIKE YOU MOW|THE HOA STILL INSPECTS');
@@ -1237,7 +1237,7 @@ function update(dt){
     if (t && t.ground === 0 && (curSeason.winter ? t.snow > 0 : t.g > 0)){
       const wasTall = curSeason.winter ? true : t.g >= 2;   // snowpack always pays full
       if (curSeason.winter){
-        t.snow = 0; t.t = (42 + Math.random()*42)/growthMult; t.cut = tSinceStart;
+        t.snow = 0; t.t = (60 + Math.random()*50)/growthMult; t.cut = tSinceStart;
         for (let i=0;i<7;i++)                  // snow arcs out the back chute
           parts.push({ x: player.x - player.fx*6, y: player.y - player.fy*6 - 10,
             vx: -player.fx*(26 + Math.random()*22) + (Math.random()*14-7),
@@ -1248,13 +1248,16 @@ function update(dt){
         puff(mx*TILE+8, HUD_H+my*TILE+10, 3, C.g2t, 34);
         puff(mx*TILE+8, HUD_H+my*TILE+9, 2, C.g0aHi, 42);
       }
-      const multBefore = multOf(streak);
-      streak++; streakT = 0;
-      const mult = multOf(streak);
-      if (mult > multBefore){
-        float(player.x, player.y-20, 'STREAK x' + mult + '!', C.accent);
-        beep(392 + mult*90, 0.08, 'square', 0.07);
-        tip('streak', 'STREAK! KEEP CUTTING WITHOUT GAPS|TO MULTIPLY YOUR MOWING POINTS');
+      let mult = 1;
+      if (wasTall){                            // only visible growth feeds the streak —
+        const multBefore = multOf(streak);     // stubble cuts pay flat and don't reset it
+        streak++; streakT = 0;
+        mult = multOf(streak);
+        if (mult > multBefore){
+          float(player.x, player.y-20, 'STREAK x' + mult + '!', C.accent);
+          beep(392 + mult*90, 0.08, 'square', 0.07);
+          tip('streak', 'STREAK! KEEP CUTTING TALL GRASS|WITHOUT GAPS TO MULTIPLY POINTS');
+        }
       }
       mowCount++; score += (wasTall ? 5 : 2) * mult;
       sndMow();
@@ -1325,7 +1328,7 @@ function update(dt){
     if (curSeason.winter){
       if (t.ground === 0 && !t.snow){
         t.t -= dt*growthMult;
-        if (t.t <= 0){ t.snow = 1; t.t = 42 + Math.random()*42; }
+        if (t.t <= 0){ t.snow = 1; t.t = 60 + Math.random()*50; }
       }
       continue;                                // grass and weeds sleep under the snow
     }
