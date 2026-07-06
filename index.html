@@ -707,6 +707,7 @@ const sndFix    = () => { beep(196,0.08,'triangle',0.1); beep(262,0.1,'triangle'
 const sndScram  = () => { beep(1200,0.05,'square',0.05); beep(1500,0.05,'square',0.05,0.05); };
 const sndBad    = () => { beep(220,0.2,'sawtooth',0.09); beep(165,0.3,'sawtooth',0.09,0.2); };
 const sndDay    = () => { beep(392,0.1,'triangle',0.08); beep(494,0.1,'triangle',0.08,0.1); beep(587,0.16,'triangle',0.08,0.2); };
+const sndPromo  = () => { beep(523,0.09,'square',0.08); beep(659,0.09,'square',0.08,0.09); beep(784,0.09,'square',0.08,0.18); beep(1047,0.2,'square',0.09,0.27); };
 const sndGnome  = () => { beep(659,0.06,'square',0.06); beep(784,0.06,'square',0.06,0.06); beep(988,0.06,'square',0.06,0.12); beep(1319,0.12,'square',0.06,0.18); };
 const sndSting  = () => { beep(330,0.24,'sawtooth',0.07); beep(311,0.24,'sawtooth',0.07,0.24); beep(294,0.24,'sawtooth',0.07,0.48); beep(262,0.5,'sawtooth',0.08,0.72); };
 const sndBeer   = () => { beep(950,0.04,'square',0.09); hiss(0.28,0.08); beep(523,0.07,'triangle',0.07,0.12); beep(659,0.09,'triangle',0.07,0.19); };
@@ -807,8 +808,11 @@ let state = 'title';           // title | play | over
 let tiles, player, squirrels, parts, floats, announce;
 let day, dayT, score, mowCount, sprayN, fertN, sprayProg, fertProg;
 let bagN, bagProg, dogs = [], dogTimer;
-let streak = 0, streakT = 0, partyGot = 0;
+let streak = 0, streakT = 0, partyGot = 0, promo = 0;
 function multOf(s){ return Math.min(5, 1 + (s >> 3)); }   // x2 at 8 cuts, cap x5
+const PROMO_AT = [6000, 14000, 30000, 60000, 120000];
+const PROMO_TITLES = ['GROUNDSKEEPER II', 'TURF SPECIALIST', 'LAWN FOREMAN',
+                      'YARD CHAMPION', 'TRUE LAWNMASTER'];
 let eventTimer, activeEvent, eventT, droughtTick, lastRank;
 let inspector = null, flashT = 0;
 
@@ -876,7 +880,7 @@ function reset(){
   eventTimer = 24 + Math.random()*10; activeEvent = null; eventT = 0; droughtTick = 0;
   lastRank = -1; inspector = null; flashT = 0;
   tipQueue = []; tipCur = null; tipT = 0;
-  streak = 0; streakT = 0; partyGot = 0;
+  streak = 0; streakT = 0; partyGot = 0; promo = 0;
   strikes = 0; complaint = 0; health = 1; gnomes = []; tSinceStart = 0;
   hoaActive = false; complaintWarned = false;
   weedTimer = 6; squirrelTimer = 9; dryTimer = 18;
@@ -1189,7 +1193,8 @@ function update(dt){
       const rx = vx*ca - vy*sa, ry = vx*sa + vy*ca;
       vx = rx; vy = ry;
     }
-    const SPD = buzzT > 0 ? 118 : 88;
+    const baseSPD = 88 * (1 + 0.05*promo);     // each promotion is +5% for life
+    const SPD = buzzT > 0 ? baseSPD*1.34 : baseSPD;
     player.x = Math.max(8, Math.min(W-8, player.x + vx*SPD*dt));
     player.y = Math.max(HUD_H+8, Math.min(H-8, player.y + vy*SPD*dt));
     /* can't drive through the house */
@@ -1594,6 +1599,16 @@ function update(dt){
   }
   if (shake > 0) shake -= dt;
   flashT = Math.max(0, flashT - dt);
+  /* promotions: good play buys the speed to keep up with the ramp */
+  while (promo < PROMO_AT.length && score >= PROMO_AT[promo]){
+    promo++;
+    sprayN = Math.min(MAXR, sprayN+1); fertN = Math.min(MAXR, fertN+1);
+    bagN = Math.min(MAXR, bagN+1);
+    announce.length = 0;
+    say('PROMOTED: ' + PROMO_TITLES[promo-1], 'MOWER SPEED UP - SUPPLIES DELIVERED');
+    sndPromo();
+  }
+
   if (streak > 0){                             // streaks die after a 2.4s gap
     streakT += dt;
     if (streakT > 2.4){
@@ -2333,6 +2348,7 @@ function drawOver(){
   drawTextC('YOUR MOWER KEYS HAVE BEEN CONFISCATED', W/2, 98, 1, C.cream);
   drawTextC('DAYS ON THE JOB: ' + day + '  -  TILES MOWED: ' + mowCount, W/2, 116, 1, C.cream);
   drawTextC('FINAL SCORE: ' + score, W/2, 132, 2, C.accent);
+  drawTextC('RANK: ' + (promo ? PROMO_TITLES[promo-1] : 'GROUNDSKEEPER'), W/2, 145, 1, C.cream);
   if (lastRank === 0){
     if (Math.floor(tSinceStart*3)%2===0) drawTextC('NEW RECORD!', W/2, 154, 2, C.warn);
   } else if (lastRank > 0){
