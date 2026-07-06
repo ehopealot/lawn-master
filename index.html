@@ -513,48 +513,27 @@ function buildGrassTiles(season){
 }
 buildGrassTiles(curSeason);
 
-/* snow tiles: three depths, season-independent */
-const TCS = [[],[],[]];
+/* snow tiles: one kind — heavy snowpack. six variants of soft rounded
+   drifts (lit crowns over cool under-shadows), lit from the top-left */
+const TCS = [];
 (function buildSnow(){
-  for (let d=0;d<3;d++) for (let v=0;v<NV;v++) TCS[d].push(makeTile(g => {
-    const rnd = mulberry(701 + d*29 + v*11);
-    if (d === 0){                                // dusting: frosted grass, soft lit patches
-      g.fillStyle = '#c2cec4'; g.fillRect(0, 0, TILE, TILE);
-      for (let i=0;i<6;i++){                     // frozen blades, some ice-tipped
-        const bx = rnd()*15|0, by = rnd()*14|0;
-        g.fillStyle = '#a8bcae'; g.fillRect(bx, by, 1, 2);
-        if (rnd() < 0.5){ g.fillStyle = '#e6f0f2'; g.fillRect(bx, by, 1, 1); }
-      }
-      for (let i=0;i<4;i++){                     // snow patches, light from top-left
-        const px2 = rnd()*11|0, py2 = rnd()*12|0, w2 = 4+(rnd()*4|0);
-        g.fillStyle = '#dde6ec'; g.fillRect(px2, py2+1, w2, 2);
-        g.fillStyle = '#f2f7fa'; g.fillRect(px2, py2, Math.max(2, w2-1), 2);
-        g.fillStyle = '#fbfdfe'; g.fillRect(px2, py2, 2, 1);
-      }
-    } else if (d === 1){                         // snowpack: gentle undulation
-      g.fillStyle = '#ecf1f6'; g.fillRect(0, 0, TILE, TILE);
-      g.fillStyle = '#dfe8f0';                   // cool dither
-      for (let i=0;i<6;i++) g.fillRect(rnd()*15|0, rnd()*15|0, 2, 1);
-      for (let i=0;i<3;i++){                     // low ridges: lit crest over soft shadow
-        const rx = rnd()*9|0, ry = 2+(rnd()*12|0), w2 = 5+(rnd()*6|0);
-        g.fillStyle = '#d5e0ea'; g.fillRect(rx+1, ry+1, w2, 1);
-        g.fillStyle = '#f9fcff'; g.fillRect(rx, ry, w2, 1);
-      }
-      if (v%2){ g.fillStyle = '#8fa694'; g.fillRect(2+(rnd()*11|0), 2+(rnd()*11|0), 1, 1); }  // buried blade tip
-    } else {                                     // drifts: wind-carved stepped crests
-      g.fillStyle = '#f3f7fb'; g.fillRect(0, 0, TILE, TILE);
-      g.fillStyle = '#dae4ee';                   // scoured shadow pockets
-      for (let i=0;i<2;i++) g.fillRect(rnd()*10|0, rnd()*11|0, 4+(rnd()*3|0), 2);
-      for (let i=0;i<3;i++){                     // crests stepping up-right with the wind
-        const cx2 = rnd()*7|0, cy2 = 4+(rnd()*10|0);
-        for (let s2=0;s2<3;s2++){
-          g.fillStyle = '#c6d5e2'; g.fillRect(cx2+s2*3, cy2-s2+1, 3, 1);
-          g.fillStyle = '#ffffff'; g.fillRect(cx2+s2*3, cy2-s2, 3, 1);
-        }
-      }
-      g.fillStyle = '#ffffff';                   // crest glints
-      for (let i=0;i<2;i++) g.fillRect(rnd()*15|0, rnd()*15|0, 1, 1);
+  for (let v=0;v<6;v++) TCS.push(makeTile(g => {
+    const rnd = mulberry(701 + v*37);
+    g.fillStyle = '#edf2f7'; g.fillRect(0, 0, TILE, TILE);
+    g.fillStyle = '#e2eaf1';                     // fine grain
+    for (let i=0;i<5;i++) g.fillRect(rnd()*15|0, rnd()*15|0, 2, 1);
+    for (let i=0;i<3;i++){                       // rounded drift lumps
+      const lx = rnd()*9|0, ly = 1+(rnd()*11|0), lw = 5+(rnd()*5|0);
+      g.fillStyle = '#fafcfe';                   // lit crown
+      g.fillRect(lx+1, ly, Math.max(2, lw-2), 1);
+      g.fillRect(lx, ly+1, lw, 1);
+      g.fillStyle = '#dce6ee';                   // soft under-shadow
+      g.fillRect(lx+1, ly+2, Math.max(2, lw-1), 1);
+      g.fillStyle = '#cfdce6';
+      g.fillRect(lx+2, ly+3, Math.max(2, lw-2), 1);
     }
+    g.fillStyle = '#ffffff';                     // stray glints
+    for (let i=0;i<2;i++) g.fillRect(rnd()*15|0, rnd()*15|0, 1, 1);
   }));
 })();
 
@@ -818,7 +797,7 @@ function reset(){
     for (const wt of tiles){
       const r = Math.random();
       wt.g = 1; wt.weed = null;
-      wt.snow = r < 0.2 ? 0 : r < 0.75 ? 1 : r < 0.95 ? 2 : 3;
+      wt.snow = r < 0.5 ? 0 : 1;
     }
   }
   for (let y=HOUSE_TY; y<HOUSE_TY+HOUSE_TH; y++)
@@ -1053,7 +1032,7 @@ function update(dt){
       curSong = SONGS[SEASONS.indexOf(ns)];    // season theme takes over
       mStep = 0;
       if (ns.winter)                           // first frost kills the weeds
-        for (const t2 of tiles){ t2.weed = null; t2.t = 8 + Math.random()*20; }
+        for (const t2 of tiles){ t2.weed = null; t2.t = 30 + Math.random()*40; }
       if (wasWinter && !ns.winter)             // spring thaw
         for (const t2 of tiles){ t2.snow = 0; t2.t = 20 + Math.random()*30; }
       announce.length = 0;
@@ -1103,9 +1082,9 @@ function update(dt){
     const my = Math.floor((player.y + player.fy*5 - HUD_H)/TILE);
     const t = tileAt(mx, my);
     if (t && t.ground === 0 && (curSeason.winter ? t.snow > 0 : t.g > 0)){
-      const wasTall = curSeason.winter ? t.snow >= 2 : t.g >= 2;
+      const wasTall = curSeason.winter ? true : t.g >= 2;   // snowpack always pays full
       if (curSeason.winter){
-        t.snow = 0; t.t = (26 + Math.random()*26)/growthMult; t.cut = tSinceStart;
+        t.snow = 0; t.t = (52 + Math.random()*52)/growthMult; t.cut = tSinceStart;
         for (let i=0;i<7;i++)                  // snow arcs out the chute
           parts.push({ x: mx*TILE+8, y: HUD_H+my*TILE+8,
             vx: (Math.random()*30-15) - player.fy*36, vy: -28 - Math.random()*26,
@@ -1172,9 +1151,9 @@ function update(dt){
   for (let i=0;i<tiles.length;i++){
     const t = tiles[i];
     if (curSeason.winter){
-      if (t.ground === 0 && t.snow < 3){
+      if (t.ground === 0 && !t.snow){
         t.t -= dt*growthMult;
-        if (t.t <= 0){ t.snow++; t.t = 26 + Math.random()*26; }
+        if (t.t <= 0){ t.snow = 1; t.t = 52 + Math.random()*52; }
       }
       continue;                                // grass and weeds sleep under the snow
     }
@@ -1368,7 +1347,7 @@ function update(dt){
   for (const t of tiles){
     if (t.ground === 3) continue;
     total++;
-    if (t.ground === 0 && !t.poo && (curSeason.winter ? t.snow <= 1 : (t.g <= 1 && !t.weed))) good++;
+    if (t.ground === 0 && !t.poo && (curSeason.winter ? t.snow === 0 : (t.g <= 1 && !t.weed))) good++;
   }
   health = good/(total || 1);
   if (!hoaActive && tSinceStart > 25){
@@ -1525,7 +1504,7 @@ function drawSnowLips(x, y, lvl, px, py){
   if (rig) for (let i=0;i<TILE;i+=2) ctx.fillRect(px+TILE-1-jogPx(x,y,i+3), py+i, 1, 2);
 }
 function drawClearedSnowEdges(x, y, t, px, py){
-  const bank = (nx, ny) => snowAt(nx, ny, 0) >= 2;
+  const bank = (nx, ny) => snowAt(nx, ny, 0) >= 1;
   const top = bank(x, y-1), bot = bank(x, y+1), lef = bank(x-1, y), rig = bank(x+1, y);
   if (top || bot || lef || rig){
     ctx.fillStyle = 'rgba(150,170,190,0.45)';    // banks cast cool shadow onto the path
@@ -1575,9 +1554,9 @@ function drawTiles(){
     } else {                                   // grass (pre-rendered variants)
       const vi = hash(x*7, y*13);
       if (curSeason.winter && t.snow > 0){
-        ctx.drawImage(TCS[t.snow-1][(vi*NV)|0], px, py);
-        if (t.snow >= 2) drawSnowLips(x, y, t.snow, px, py);
-        if (t.snow >= 2){                            // glinting snowpack
+        ctx.drawImage(TCS[(vi*6)|0], px, py);
+        drawSnowLips(x, y, t.snow, px, py);
+        {                                            // glinting snowpack
           const sh2 = hash(x*11, y*23);
           if (sh2 < 0.4){
             const tw2 = Math.sin(tSinceStart*2.2 + sh2*40);

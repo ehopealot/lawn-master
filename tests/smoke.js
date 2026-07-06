@@ -132,7 +132,7 @@ if (scoresCache[0].s !== 250) throw new Error('score cache not sorted');
 
 // winter: snowblower clears snow and earns supplies
 curSeason = SEASONS[3];
-for (const t of tiles) if (t.ground === 0) t.snow = 2;
+for (const t of tiles) if (t.ground === 0) t.snow = 1;
 player.x = 40; player.y = HUD_H + 40;
 sprayN = 0; fertN = 0; sprayProg = 0; fertProg = 0; buzzT = 0;
 keys.right = true;

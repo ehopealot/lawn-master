@@ -61,7 +61,7 @@ for (let i=0;i<300;i++) st();                   // ~5s: leaf spawn is ~1.3/s poi
 if (!parts.some(p => p.leaf)) throw new Error('no autumn leaves spawned');
 // winter render paths: snow depths, glints, blower sprite, snowfall
 curSeason = SEASONS[3]; buildGrassTiles(curSeason);
-tiles[60].snow = 1; tiles[61].snow = 2; tiles[62].snow = 3;
+tiles[60].snow = 1; tiles[61].snow = 1; tiles[63].snow = 1;   // banks + lips render
 for (let i=0;i<300;i++) st();
 if (!parts.some(p => p.leaf)) throw new Error('no snowfall spawned');
 reset();                                        // must snap back to summer
