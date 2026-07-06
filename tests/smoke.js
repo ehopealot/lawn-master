@@ -149,6 +149,15 @@ while (inspector && guard2-- > 0) step(16);
 if (inspector) throw new Error('inspector never gave up');
 if (complaint >= 0.45) throw new Error('complaint did not decay');
 
+// onboarding: tips fired once each across everything above
+if (!tipsSeen.move) throw new Error('move tip never fired');
+if (!tipsSeen.weed || !tipsSeen.squirrel || !tipsSeen.dog || !tipsSeen.poop)
+  throw new Error('hazard tips missing: ' + Object.keys(tipsSeen).join());
+const tipCount = Object.keys(tipsSeen).length;
+tipsSeen.move = 0; tip('move', 'X'); tipsSeen.move = 1;   // re-arm guard sanity
+if (tipQueue[tipQueue.length-1] !== 'X') throw new Error('tip queue broken');
+tipQueue.length = 0; tipCur = null;
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);

@@ -104,6 +104,7 @@ const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').
 const STANDALONE = (typeof navigator !== 'undefined' && navigator.standalone === true) ||
   !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 const NARROW = TOUCHCAP;                      // phones play a tall vertical yard
+const ACT = TOUCHCAP ? 'TAP' : 'SPACE';       // the action word in player-facing copy
 
 const TILE = 16, HUD_H = NARROW ? 40 : 32;
 const GW = NARROW ? 16 : 30, GH = NARROW ? 30 : 19;   // phones: fewer, bigger tiles
@@ -790,6 +791,19 @@ function loadScores(){
   } catch(e){ return []; }
 }
 scoresCache = loadScores();
+/* ---------- one-time onboarding tips ---------- */
+let tipsSeen = (function(){
+  try { return JSON.parse(localStorage.getItem('lawnmaster.tips')) || {}; }
+  catch(e){ return {}; }
+})();
+let tipQueue = [], tipCur = null, tipT = 0;
+function tip(id, text){
+  if (tipsSeen[id]) return;
+  tipsSeen[id] = 1;
+  try { localStorage.setItem('lawnmaster.tips', JSON.stringify(tipsSeen)); } catch(e){}
+  tipQueue.push(text);
+}
+
 function saveScore(s, d){
   const entry = { s, d };
   const arr = loadScores();
@@ -831,6 +845,7 @@ function reset(){
   bagN = 2; bagProg = 0; dogs = []; dogTimer = 9 + Math.random()*5;
   eventTimer = 24 + Math.random()*10; activeEvent = null; eventT = 0; droughtTick = 0;
   lastRank = -1; inspector = null; flashT = 0;
+  tipQueue = []; tipCur = null; tipT = 0;
   strikes = 0; complaint = 0; health = 1; gnomes = []; tSinceStart = 0;
   hoaActive = false; complaintWarned = false;
   weedTimer = 6; squirrelTimer = 9; dryTimer = 18;
@@ -1019,7 +1034,10 @@ function action(){
       const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
       puff(cx, cy, 8, '#d7f0b9', 26); puff(cx, cy-2, 5, '#f0f8e0', 18);
       float(cx, cy-6, '+20', C.accent);
-    } else { float(player.x, player.y-14, 'OUT OF SPRAY!', C.bad); sndBad(); }
+    } else {
+      float(player.x, player.y-14, 'OUT OF SPRAY!', C.bad); sndBad();
+      tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
+    }
     return;
   }
   if (a && a.type === 'poo'){
@@ -1027,7 +1045,10 @@ function action(){
       bagN--; a.t.poo = null; score += 15; sndScoop();
       const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
       puff(cx, cy, 6, '#b98d5a', 22); float(cx, cy-6, 'BAGGED IT +15', C.accent);
-    } else { float(player.x, player.y-14, 'OUT OF BAGS!', C.bad); sndBad(); }
+    } else {
+      float(player.x, player.y-14, 'OUT OF BAGS!', C.bad); sndBad();
+      tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
+    }
     return;
   }
   if (a && a.type === 'fix'){
@@ -1036,7 +1057,10 @@ function action(){
       score += 15; sndFix();
       const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
       puff(cx, cy, 10, C.dirt, 30); float(cx, cy-6, '+15', C.accent);
-    } else { float(player.x, player.y-14, 'NEED FERTILIZER!', C.bad); sndBad(); }
+    } else {
+      float(player.x, player.y-14, 'NEED FERTILIZER!', C.bad); sndBad();
+      tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
+    }
     return;
   }
   // honk
@@ -1080,6 +1104,7 @@ function update(dt){
         for (const t2 of tiles){ t2.weed = null; t2.t = 30 + Math.random()*40; }
         flashT = 0.7;
         float(player.x, player.y-16, 'SNOWBLOWER MODE!', C.accent);
+        tip('winter', 'WINTER: BLOW SNOW LIKE YOU MOW|THE HOA STILL INSPECTS');
         for (let fi=0;fi<28;fi++)              // the flurry arrives all at once
           parts.push({ leaf: true, x: Math.random()*W, y: HUD_H + Math.random()*(H-HUD_H),
             vx: 4 + Math.random()*8, vy: 14 + Math.random()*10,
@@ -1107,6 +1132,15 @@ function update(dt){
     if (td > 9){ vx = touch.dx/td; vy = touch.dy/td; }
   }
   buzzT -= dt; beerCD -= dt;
+
+  /* onboarding drip: teach each thing the first time it matters */
+  if (mowCount === 0) tip('move', 'DRIVE OVER THE GRASS TO MOW IT');
+  if (mowCount >= 6) tip('supplies', 'MOWING EARNS YOUR SUPPLIES|WATCH THE METERS UP TOP');
+  if (Math.hypot(player.x-COOLER.x, player.y-COOLER.y) < 70)
+    tip('cooler', 'THE COOLER: ' + ACT + ' FOR A COLD ONE|FAST BUT WOBBLY STEERING');
+  if (!tipCur && tipQueue.length){ tipCur = tipQueue.shift(); tipT = 6; }
+  if (tipCur){ tipT -= dt; if (tipT <= 0) tipCur = null; }
+
   player.moving = (vx || vy);
   if (player.moving){
     const inv = 1/Math.hypot(vx, vy);
@@ -1240,7 +1274,10 @@ function update(dt){
     weedTimer = Math.max(3, 7*Math.pow(0.92, lvl-1)) * (0.7+Math.random()*0.6);
     if (!curSeason.winter){
       const cand = tiles[(Math.random()*tiles.length)|0];
-      if (!cand.weed && cand.ground === 0) cand.weed = {age:0};
+      if (!cand.weed && cand.ground === 0){
+        cand.weed = {age:0};
+        tip('weed', 'A WEED! PULL UP BESIDE IT|' + ACT + ' TO SPRAY');
+      }
     }
   }
   squirrelTimer -= dt;
@@ -1253,6 +1290,7 @@ function update(dt){
       state:'walk', digT:0, digs:0, tx:0, ty:0, anim:0
     });
     pickDigSpot(squirrels[squirrels.length-1]);
+    tip('squirrel', 'SQUIRRELS DIG HOLES!|CHASE THEM OFF OR HONK: ' + ACT);
   }
   if (day >= 2 && !curSeason.winter){
     dryTimer -= dt;
@@ -1263,6 +1301,7 @@ function update(dt){
       if (t.ground === 0){
         t.ground = 1; t.g = 0; t.weed = null; t.poo = null;
         float(i%GW*TILE+8, HUD_H+((i/GW)|0)*TILE+8, 'DRY PATCH!', C.warn);
+        tip('dry', 'A DRY PATCH - RESEED IT|WITH FERTILIZER: ' + ACT);
       }
     }
   }
@@ -1295,7 +1334,10 @@ function update(dt){
       if (s.digT <= 0){
         const tx = Math.floor(s.x/TILE), ty = Math.floor((s.y-HUD_H)/TILE);
         const t = tileAt(tx, ty);
-        if (t && t.ground !== 3){ t.ground = 2; t.g = 0; t.weed = null; t.poo = null; t.snow = 0; }
+        if (t && t.ground !== 3){
+          t.ground = 2; t.g = 0; t.weed = null; t.poo = null; t.snow = 0;
+          tip('hole', 'A HOLE! PARK BESIDE IT|' + ACT + ' USES FERTILIZER');
+        }
         sndBad(); shake = 0.25;
         float(s.x, s.y-10, 'HOLE DUG!', C.bad);
         s.digs++;
@@ -1399,7 +1441,10 @@ function update(dt){
       if (d.t <= 0){
         const dtx = Math.floor(d.x/TILE), dty = Math.floor((d.y-HUD_H)/TILE);
         const dtile = tileAt(dtx, dty);
-        if (dtile && dtile.ground === 0) dtile.poo = { t: tSinceStart };
+        if (dtile && dtile.ground === 0){
+          dtile.poo = { t: tSinceStart };
+          tip('poop', 'BAG THE MESS: ' + ACT + ' BESIDE IT|MOWING WONT CLEAR IT');
+        }
         d.poos++;
         float(d.x, d.y-12, 'PLOP.', C.warn);
         sndPlop();
@@ -1433,6 +1478,7 @@ function update(dt){
   if (!hoaActive && tSinceStart > 25){
     hoaActive = true;
     say('THE HOA IS WATCHING', 'KEEP THE LAWN ABOVE 45%');
+    tip('hoa', 'THE HOA IS WATCHING NOW|KEEP THE LAWN METER ABOVE 45%');
   }
   if (hoaActive && health < 0.45){
     complaint += dt * (0.45-health) * 0.32;
@@ -1534,6 +1580,7 @@ function spawnDog(big, quiet){
               state:'walk', t:0, poos:0, stops: (big ? 3 : 2) + (Math.random()*2|0),
               tx:0, ty:0, anim: Math.random()*2, big: !!big, scares:0, scareCD:0 };
   pickDogSpot(d);
+  tip('dog', 'A DOG! SCARE HIM OFF|BEFORE HE DOES HIS BUSINESS');
   if (!quiet){
     float(Math.max(24, Math.min(W-24, d.x)), d.y-10,
       big ? 'A BIG DOG WANDERS IN' : 'A DOG WANDERS IN', C.cream);
@@ -2052,6 +2099,21 @@ function drawPlay(){
     ctx.globalAlpha = 1;
   }
   drawHUD();
+
+  if (tipCur){                                  // one-time onboarding tip
+    const tl = tipCur.split('|');
+    const bw = Math.max(textW(tl[0], 1), tl[1] ? textW(tl[1], 1) : 0) + 12;
+    const bh = tl.length*9 + 7;
+    const bx = ((W-bw)/2)|0, by = H - 16 - bh;
+    ctx.globalAlpha = Math.min(1, tipT/0.4);
+    ctx.fillStyle = 'rgba(16,21,13,0.88)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = C.accent;
+    ctx.strokeRect(bx+0.5, by+0.5, bw-1, bh-1);
+    for (let li=0;li<tl.length;li++)
+      drawTextC(tl[li], W/2, by+5+li*9, 1, li === 0 ? C.cream : C.accent);
+    ctx.globalAlpha = 1;
+  }
 
   const ay = (H*0.36)|0;
   for (const an of announce){
