@@ -1438,7 +1438,7 @@ function triggerEvent(name){
   if (name === 'stampede'){
     say('SQUIRREL STAMPEDE!', 'HONK THEM OFF THE LAWN');
     sndScram();
-    for (let i=0;i<6;i++){
+    for (let i=0;i<10;i++){
       const fromLeft = i%2 === 0;
       const s = { x: fromLeft ? -12 - Math.random()*30 : W+12 + Math.random()*30,
                   y: HUD_H + 16 + Math.random()*(GH*TILE-32),
@@ -1450,7 +1450,7 @@ function triggerEvent(name){
   } else if (name === 'dogpark'){
     say('DOG PARK TAKEOVER!', 'THEY THINK THIS IS PUBLIC LAND');
     sndBigBark();
-    for (let i=0;i<3;i++) dogs.push(spawnDog(i === 0 && day >= 3, true));
+    for (let i=0;i<5;i++) dogs.push(spawnDog(i < 2 && day >= 3, true));
   } else if (name === 'gnomeparty'){
     say('GNOME PARTY!', 'GRAB THEM BEFORE THEY VANISH');
     sndGnome();

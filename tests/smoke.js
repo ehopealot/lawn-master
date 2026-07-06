@@ -90,10 +90,12 @@ dogs = [];
 // events: stampede, dog park, drought
 squirrels.length = 0;
 triggerEvent('stampede');
-if (squirrels.length < 5) throw new Error('stampede too small');
+if (squirrels.length < 10) throw new Error('stampede too small');
 squirrels.length = 0;
+day = 3;
 triggerEvent('dogpark');
-if (dogs.length < 3) throw new Error('dog park takeover too small');
+if (dogs.length < 5) throw new Error('dog park takeover too small');
+if (dogs.filter(d => d.big).length < 2) throw new Error('takeover needs big dogs');
 dogs = [];
 curSeason = SEASONS[0];
 triggerEvent('drought');
