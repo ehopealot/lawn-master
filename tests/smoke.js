@@ -126,6 +126,29 @@ keys.right = true; step(16); keys.right = false;
 if (gnomes.length !== 0) throw new Error('gnome not collected');
 if (sprayN < 1) throw new Error('gnome reward missing');   // >=1: same frame may also earn a mow reward
 
+// rain: repairs dirt, then blows over
+curSeason = SEASONS[0];
+let wetted = 0;
+for (const t of tiles) if (t.ground === 0 && wetted < 8){ t.ground = 1; wetted++; }
+const dirtB4 = tiles.filter(t => t.ground === 1).length;
+triggerEvent('rain');
+if (activeEvent !== 'rain') throw new Error('rain did not start');
+for (let i=0;i<300;i++) step(16);
+if (tiles.filter(t => t.ground === 1).length >= dirtB4) throw new Error('rain repaired nothing');
+for (let i=0;i<400 && activeEvent;i++) step(16);
+if (activeEvent === 'rain') throw new Error('rain never ended');
+
+// inspector: appears at complaint 0.5, gives up when the yard recovers
+for (const t of tiles){ t.ground = 0; t.g = 3; t.weed = null; t.poo = null; }
+hoaActive = true; complaint = 0.52; complaintWarned = false;
+for (let i=0;i<6;i++) step(16);
+if (!inspector) throw new Error('inspector never showed');
+for (const t of tiles){ t.g = 0; }              // heroic emergency mow
+let guard2 = 1200;
+while (inspector && guard2-- > 0) step(16);
+if (inspector) throw new Error('inspector never gave up');
+if (complaint >= 0.45) throw new Error('complaint did not decay');
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);

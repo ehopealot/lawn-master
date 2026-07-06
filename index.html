@@ -162,7 +162,7 @@ const SPAL = {
   k:'#1c1a16', g:'#8f9389', y:'#ffd94a', w:'#f5f2e8', x:'#56524a',
   t:'#7c4b28', a:'#b98d5a', e:'#5c3a20', m:'#3a2b1c',
   p:'#e8d9c0', o:'#e0dcc8', u:'#2f6b2a',
-  n:'#e08830', N:'#a8541a'
+  n:'#e08830', N:'#a8541a', v:'#7d6a9e'
 };
 function drawMap(map, x, y, flip, sc){
   sc = sc || 1;
@@ -224,9 +224,53 @@ const MOWER_U = [
   "kxxkddddddkxxk",
   "kkkk.dddd.kkkk",
 ];
-/* winter livery: same machine, orange body, red wool cap */
+/* winter livery: orange machine, red wool cap. side view is a proper
+   snowblower: auger drum up front, tall discharge chute */
 const toBlower = m => m.map(r => r.replace(/r/g,'n').replace(/d/g,'N').replace(/u/g,'c'));
-const BLOWER_R = toBlower(MOWER_R), BLOWER_D = toBlower(MOWER_D), BLOWER_U = toBlower(MOWER_U);
+const BLOWER_D = toBlower(MOWER_D), BLOWER_U = toBlower(MOWER_U);
+const BLOWER_R = [
+  "...........kkk....",
+  "....kkkk...kgk....",
+  "...kcccck..kgk....",
+  "...kcsssk..kgk....",
+  "....kssk...kgk....",
+  "...kbbbbk..kgk....",
+  "..kbbbbbbk.kggk...",
+  "..kbbbbbbkknnnnk..",
+  ".knnnnnnnkNwwNNk..",
+  ".knnnnnnnkNNwwNk..",
+  ".kkxxkkkkkNwwNNk..",
+  ".kkxxkk...kkkkkk..",
+  "..kkkk....kkkk....",
+];
+const INSPECT1 = [
+  "...xxx....",
+  "..xxxxx...",
+  "..kssk....",
+  "..ssss....",
+  "..vvvv....",
+  ".svvvvsww.",
+  ".svvvvsww.",
+  "..vvvv.w..",
+  "..kkkk....",
+  "..kkkk....",
+  "..s..s....",
+  "..k..k....",
+];
+const INSPECT2 = [
+  "...xxx....",
+  "..xxxxx...",
+  "..kssk....",
+  "..ssss....",
+  "..vvvv....",
+  ".svvvvsww.",
+  ".svvvvsww.",
+  "..vvvv.w..",
+  "..kkkk....",
+  "..kkkk....",
+  "...ss.....",
+  "...kk.....",
+];
 const SQ1 = [
   ".ttt........",
   "ttttt.......",
@@ -735,6 +779,7 @@ let tiles, player, squirrels, parts, floats, announce;
 let day, dayT, score, mowCount, sprayN, fertN, sprayProg, fertProg;
 let bagN, bagProg, dogs = [], dogTimer;
 let eventTimer, activeEvent, eventT, droughtTick, lastRank;
+let inspector = null, flashT = 0;
 
 /* ---------- high scores (localStorage) ---------- */
 let scoresCache = [];
@@ -785,7 +830,7 @@ function reset(){
   sprayN = 4; fertN = 3; sprayProg = 0; fertProg = 0;
   bagN = 2; bagProg = 0; dogs = []; dogTimer = 9 + Math.random()*5;
   eventTimer = 24 + Math.random()*10; activeEvent = null; eventT = 0; droughtTick = 0;
-  lastRank = -1;
+  lastRank = -1; inspector = null; flashT = 0;
   strikes = 0; complaint = 0; health = 1; gnomes = []; tSinceStart = 0;
   hoaActive = false; complaintWarned = false;
   weedTimer = 6; squirrelTimer = 9; dryTimer = 18;
@@ -1031,10 +1076,21 @@ function update(dt){
       buildGrassTiles(ns);
       curSong = SONGS[SEASONS.indexOf(ns)];    // season theme takes over
       mStep = 0;
-      if (ns.winter)                           // first frost kills the weeds
+      if (ns.winter){                          // first frost kills the weeds
         for (const t2 of tiles){ t2.weed = null; t2.t = 30 + Math.random()*40; }
-      if (wasWinter && !ns.winter)             // spring thaw
+        flashT = 0.7;
+        float(player.x, player.y-16, 'SNOWBLOWER MODE!', C.accent);
+        for (let fi=0;fi<28;fi++)              // the flurry arrives all at once
+          parts.push({ leaf: true, x: Math.random()*W, y: HUD_H + Math.random()*(H-HUD_H),
+            vx: 4 + Math.random()*8, vy: 14 + Math.random()*10,
+            t: 16, t0: 16, col: Math.random() < 0.5 ? '#ffffff' : '#e8f0f8',
+            size: Math.random() < 0.3 ? 1 : 2 });
+      }
+      if (wasWinter && !ns.winter){            // spring thaw
         for (const t2 of tiles){ t2.snow = 0; t2.t = 20 + Math.random()*30; }
+        flashT = 0.5;
+        float(player.x, player.y-16, 'BACK TO MOWING!', C.accent);
+      }
       announce.length = 0;
       say(ns.name, ns.msg);
     }
@@ -1131,6 +1187,11 @@ function update(dt){
         gnomes.splice(gi, 1);
       }
     }
+    /* winter: the auger kicks loose powder even between drifts */
+    if (curSeason.winter && Math.random() < dt*10)
+      parts.push({ x: player.x + player.fx*8 + (Math.random()*8-4),
+        y: player.y + player.fy*8, vx: Math.random()*20-10, vy: -20 - Math.random()*15,
+        t: 0.35, t0: 0.35, col: '#ffffff', size: 1 });
     /* exhaust puffs while driving */
     exhaustT -= dt;
     if (exhaustT <= 0){
@@ -1158,7 +1219,7 @@ function update(dt){
       continue;                                // grass and weeds sleep under the snow
     }
     if (t.ground === 0 && t.g < 3){
-      t.t -= dt*growthMult;
+      t.t -= dt*growthMult*(activeEvent === 'rain' ? 1.6 : 1);   // rain feeds the grass
       if (t.t <= 0){ t.g++; t.t = 26 + Math.random()*26; }
     }
     if (t.weed){
@@ -1266,6 +1327,7 @@ function update(dt){
       eventTimer = 22 + Math.random()*14;
       const opts = ['stampede', 'dogpark', 'gnomeparty'];
       if (curSeason === SEASONS[0]) opts.push('drought');   // droughts are a summer thing
+      if (!curSeason.winter) opts.push('rain');
       triggerEvent(opts[(Math.random()*opts.length)|0]);
     }
   }
@@ -1283,6 +1345,23 @@ function update(dt){
         }
       }
     }
+    if (eventT <= 0) activeEvent = null;
+  }
+  if (activeEvent === 'rain'){
+    eventT -= dt; droughtTick -= dt;
+    if (droughtTick <= 0){
+      droughtTick = 0.8;
+      const dry = [];
+      for (let di=0;di<tiles.length;di++) if (tiles[di].ground === 1) dry.push(di);
+      if (dry.length){                               // dry patches drink it up
+        const wi = dry[(Math.random()*dry.length)|0];
+        const wet = tiles[wi];
+        wet.ground = 0; wet.g = 0; wet.t = 20 + Math.random()*30;
+        puff((wi%GW)*TILE+8, HUD_H+((wi/GW)|0)*TILE+8, 5, C.g1h, 22);
+      }
+    }
+    if (Math.random() < dt*50)
+      parts.push({ rain: true, x: Math.random()*W, y: HUD_H, vx: 18, vy: 170, t: 3, t0: 3 });
     if (eventT <= 0) activeEvent = null;
   }
 
@@ -1358,13 +1437,38 @@ function update(dt){
     complaint += dt * (0.45-health) * 0.32;
     if (!complaintWarned && complaint > 0.5){
       complaintWarned = true;
-      say('THE HOA IS DRAFTING A LETTER', 'GET THE YARD ABOVE 45% NOW');
+      say('THE HOA INSPECTOR IS HERE', 'GET THE YARD ABOVE 45% NOW');
       sndBad(); shake = 0.3;
+      inspector = { x: -12, y: H-18, state:'walk', dir: 1, anim: 0, scribT: 2 };
     }
   } else {
     complaint = Math.max(0, complaint - dt*0.06);
     if (complaint < 0.2) complaintWarned = false;
   }
+  /* the inspector's patrol IS the complaint meter: she reaches the far
+     corner exactly when the letter would be delivered */
+  if (inspector){
+    inspector.anim += dt;
+    if (inspector.state === 'walk'){
+      const targetX = 16 + (W-32) * Math.max(0, Math.min(1, (complaint - 0.5) / 0.5));
+      inspector.x += Math.max(-30, Math.min(46, targetX - inspector.x)) * dt * 2.2;
+      inspector.scribT -= dt;
+      if (inspector.scribT <= 0){
+        inspector.scribT = 3.5 + Math.random()*2;
+        float(Math.max(24, Math.min(W-24, inspector.x)), inspector.y-16, 'TSK TSK.', C.bad);
+      }
+      if (complaint < 0.45){
+        inspector.state = 'leave';
+        inspector.dir = inspector.x < W/2 ? -1 : 1;
+        score += 50;
+        float(Math.max(24, Math.min(W-24, inspector.x)), inspector.y-16, 'SHE GIVES UP +50', C.accent);
+      }
+    } else {
+      inspector.x += inspector.dir * 70 * dt;
+      if (inspector.x < -14 || inspector.x > W+14) inspector = null;
+    }
+  }
+
   if (complaint >= 1){                         // one letter is all it takes
     strikes = 1;
     say('HOA LETTER DELIVERED', '');
@@ -1380,6 +1484,7 @@ function update(dt){
     const p = parts[i]; p.t -= dt;
     if (p.t <= 0){ parts.splice(i,1); continue; }
     if (p.leaf){ p.x += p.vx*dt + Math.sin(p.t*2.6)*24*dt; p.y += p.vy*dt; }
+    else if (p.rain){ p.x += p.vx*dt; p.y += p.vy*dt; if (p.y > H-3) p.t = 0; }
     else if (!p.ring){ p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 60*dt; }
   }
   for (let i=floats.length-1;i>=0;i--){
@@ -1391,6 +1496,7 @@ function update(dt){
     if (announce[i].t <= 0) announce.splice(i,1);
   }
   if (shake > 0) shake -= dt;
+  flashT = Math.max(0, flashT - dt);
 }
 function pickDogSpot(d){
   for (let i=0;i<10;i++){
@@ -1468,6 +1574,10 @@ function triggerEvent(name){
     say('DROUGHT!', 'DRY PATCHES ARE SPREADING');
     sndBad();
     activeEvent = 'drought'; eventT = 10; droughtTick = 0;
+  } else if (name === 'rain'){
+    say('RAIN SHOWER!', 'DRY PATCHES DRINK IT UP');
+    hiss(0.5, 0.1);
+    activeEvent = 'rain'; eventT = 10; droughtTick = 0;
   }
 }
 function pickDigSpot(s){
@@ -1675,18 +1785,31 @@ function drawShadow(x, y, w){
 function drawMower(x, y){
   const bob = player.moving ? Math.round(Math.sin(tSinceStart*22)) : 0;
   const wint = curSeason.winter;
+  const rx = Math.round(x), ry = Math.round(y);
   drawShadow(x, y+3, 16);
   if (player.fy === 0){
-    drawMap(wint ? BLOWER_R : MOWER_R, Math.round(x)-9, Math.round(y)-7+bob, player.fx < 0);
-    if (wint){                                  // discharge chute
-      ctx.fillStyle = '#56524a';
-      ctx.fillRect(Math.round(x) + (player.fx > 0 ? 5 : -7), Math.round(y)-10+bob, 2, 4);
-    }
+    drawMap(wint ? BLOWER_R : MOWER_R, rx-9, ry-7+bob, player.fx < 0);
   } else if (player.fy > 0){
-    drawMap(wint ? BLOWER_D : MOWER_D, Math.round(x)-7, Math.round(y)-8+bob, false);
+    drawMap(wint ? BLOWER_D : MOWER_D, rx-7, ry-8+bob, false);
+    if (wint){                                  // auger bar churning up front
+      ctx.fillStyle = '#1c1a16'; ctx.fillRect(rx-6, ry+5+bob, 12, 3);
+      ctx.fillStyle = '#f5f2e8';
+      ctx.fillRect(rx-4 + (Math.floor(tSinceStart*10)%3)*3, ry+6+bob, 2, 1);
+    }
   } else {
-    drawMap(wint ? BLOWER_U : MOWER_U, Math.round(x)-7, Math.round(y)-6+bob, false);
+    drawMap(wint ? BLOWER_U : MOWER_U, rx-7, ry-6+bob, false);
+    if (wint){                                  // chute rises over the driver's cap
+      ctx.fillStyle = '#56524a';
+      ctx.fillRect(rx-1, ry-11+bob, 3, 5);
+      ctx.fillRect(rx-2, ry-12+bob, 5, 2);
+    }
   }
+}
+function drawInspector(ins){
+  drawShadow(ins.x, ins.y+8, 9);
+  const map = (Math.floor(ins.anim*6)%2 === 0) ? INSPECT1 : INSPECT2;
+  const flip = ins.state === 'leave' ? ins.dir < 0 : false;
+  drawMap(map, Math.round(ins.x)-5, Math.round(ins.y)-4, flip);
 }
 function drawSquirrel(s){
   const map = (Math.floor(s.anim*8)%2===0) ? SQ1 : SQ2;
@@ -1747,6 +1870,16 @@ function dayTint(){
   if (activeEvent === 'drought'){
     ctx.fillStyle = 'rgba(255,150,50,0.10)';   // heat haze
     ctx.fillRect(0, HUD_H, W, H-HUD_H);
+  }
+  if (activeEvent === 'rain'){
+    ctx.fillStyle = 'rgba(50,70,110,0.16)';    // storm light
+    ctx.fillRect(0, HUD_H, W, H-HUD_H);
+  }
+  if (flashT > 0){                             // season-change whiteout
+    ctx.globalAlpha = Math.min(0.5, flashT);
+    ctx.fillStyle = '#eef4fa';
+    ctx.fillRect(0, HUD_H, W, H-HUD_H);
+    ctx.globalAlpha = 1;
   }
   const ph = dayT/DAY_LEN;
   if (ph < 0.12){
@@ -1862,6 +1995,7 @@ function drawPlay(){
   }
   for (const s of squirrels) drawSquirrel(s);
   for (const d of dogs) drawDog(d);
+  if (inspector) drawInspector(inspector);
   drawMower(player.x, player.y);
   ctx.drawImage(HOUSE_CV, HX, HY);
   if (beerCD <= 0 && Math.floor(tSinceStart*2)%2 === 0){
@@ -1884,6 +2018,11 @@ function drawPlay(){
       ctx.beginPath();
       ctx.arc(p.x, p.y, (0.4-p.t)*110+6, 0, Math.PI*2);
       ctx.stroke();
+    } else if (p.rain){
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = '#aac8e8';
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 3);
+      ctx.globalAlpha = 1;
     } else {
       if (p.t0) ctx.globalAlpha = p.leaf ? Math.min(1, p.t/0.9) : Math.max(0, p.t/p.t0);
       ctx.fillStyle = p.col;

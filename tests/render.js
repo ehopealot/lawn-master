@@ -1,7 +1,7 @@
 // sprite map validator: consistent row widths, all chars in palette
 const maps = { MOWER_R, MOWER_D, MOWER_U, SQ1, SQ2, HOLE, GNOME,
   DOG1, DOG2, DOGSQUAT, BIGDOG1, BIGDOG2, BIGSQUAT, POOP,
-  ICON_SPRAY, ICON_BAG, ICON_DOGBAG, ICON_MAIL };
+  INSPECT1, INSPECT2, ICON_SPRAY, ICON_BAG, ICON_DOGBAG, ICON_MAIL };
 for (const name in maps){
   const m = maps[name], w = m[0].length;
   m.forEach((row, i) => {
@@ -30,6 +30,10 @@ dogs = [
   { x: 120, y: 220, state:'walk',  t: 0, poos: 0, stops: 1, tx: 140, ty: 220, anim: 0, big: true,  scares: 0, scareCD: 0 },
 ];
 squirrels.push({x:200, y:150, state:'dig', digT:9, digs:0, tx:0, ty:0, anim:0});
+inspector = { x: 120, y: H-18, state:'walk', dir: 1, anim: 0, scribT: 99 };
+activeEvent = 'rain'; eventT = 5; st();         // rain streaks + storm tint + inspector
+activeEvent = null; inspector = null;
+flashT = 0.6; st(); flashT = 0;                 // season whiteout
 dayT = DAY_LEN*0.05;  st();                     // dawn tint
 dayT = DAY_LEN*0.9;   st();                     // dusk tint
 paused = true; st(); paused = false;
