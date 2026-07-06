@@ -807,6 +807,8 @@ let state = 'title';           // title | play | over
 let tiles, player, squirrels, parts, floats, announce;
 let day, dayT, score, mowCount, sprayN, fertN, sprayProg, fertProg;
 let bagN, bagProg, dogs = [], dogTimer;
+let streak = 0, streakT = 0, partyGot = 0;
+function multOf(s){ return Math.min(5, 1 + (s >> 3)); }   // x2 at 8 cuts, cap x5
 let eventTimer, activeEvent, eventT, droughtTick, lastRank;
 let inspector = null, flashT = 0;
 
@@ -862,7 +864,7 @@ function reset(){
       weed: null,                // {age}
       poo: null,                 // {t: time deposited}
       snow: 0,                   // winter snow depth 0-3
-      t: 20 + Math.random()*30,  // next growth
+      t: 16 + Math.random()*24,  // next growth
       cut: -9                    // time of last mow (fresh-cut shimmer)
     });
   }
@@ -874,6 +876,7 @@ function reset(){
   eventTimer = 24 + Math.random()*10; activeEvent = null; eventT = 0; droughtTick = 0;
   lastRank = -1; inspector = null; flashT = 0;
   tipQueue = []; tipCur = null; tipT = 0;
+  streak = 0; streakT = 0; partyGot = 0;
   strikes = 0; complaint = 0; health = 1; gnomes = []; tSinceStart = 0;
   hoaActive = false; complaintWarned = false;
   weedTimer = 6; squirrelTimer = 9; dryTimer = 18;
@@ -1058,10 +1061,11 @@ function action(){
   }
   if (a && a.type === 'weed'){
     if (sprayN > 0){
-      sprayN--; a.t.weed = null; score += 20; sndSpray();
+      const young = a.t.weed.age < 8;          // killed before it could spread
+      sprayN--; a.t.weed = null; score += young ? 25 : 10; sndSpray();
       const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
       puff(cx, cy, 8, '#d7f0b9', 26); puff(cx, cy-2, 5, '#f0f8e0', 18);
-      float(cx, cy-6, '+20', C.accent);
+      float(cx, cy-6, young ? 'NIPPED IT! +25' : '+10', C.accent);
     } else {
       float(player.x, player.y-14, 'OUT OF SPRAY!', C.bad); sndBad();
       tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
@@ -1094,14 +1098,20 @@ function action(){
   // honk
   sndHonk();
   parts.push({x:player.x, y:player.y, ring:1, t:0.4, col:C.cream});
-  let scared = false;
+  let scaredN = 0;
   for (const s of squirrels){
     if (s.state !== 'flee' && Math.hypot(s.x-player.x, s.y-player.y) < 95){
-      startFlee(s); scared = true;
+      startFlee(s); scaredN++;
     }
   }
   for (const d of dogs) if (Math.hypot(d.x-player.x, d.y-player.y) < 95) scareDog(d);
-  if (scared){ score += 10; float(player.x, player.y-14, 'SCRAM! +10', C.warn); sndScram(); }
+  if (scaredN){
+    const bonus = 5*scaredN*(scaredN+1);       // 10, 30, 60, 100... one honk, many squirrels
+    score += bonus;
+    float(player.x, player.y-14,
+      (scaredN > 1 ? 'MULTI SCRAM! +' : 'SCRAM! +') + bonus, C.warn);
+    sndScram();
+  }
 }
 function startFlee(s){
   s.state = 'flee';
@@ -1129,7 +1139,7 @@ function update(dt){
       curSong = SONGS[SEASONS.indexOf(ns)];    // season theme takes over
       mStep = 0;
       if (ns.winter){                          // first frost kills the weeds
-        for (const t2 of tiles){ t2.weed = null; t2.t = 30 + Math.random()*40; }
+        for (const t2 of tiles){ t2.weed = null; t2.t = 24 + Math.random()*32; }
         flashT = 0.7;
         float(player.x, player.y-16, 'SNOWBLOWER MODE!', C.accent);
         tip('winter', 'WINTER: BLOW SNOW LIKE YOU MOW|THE HOA STILL INSPECTS');
@@ -1149,7 +1159,7 @@ function update(dt){
     }
   }
   const lvl = 1 + ((day-1)/3 | 0);       // difficulty level: steps every 3 days (~45s, like the old 40s days)
-  const growthMult = 1 + 0.10*(lvl-1);
+  const growthMult = 1 + 0.11*(lvl-1);
 
   /* movement */
   let vx = 0, vy = 0;
@@ -1202,18 +1212,25 @@ function update(dt){
     if (t && t.ground === 0 && (curSeason.winter ? t.snow > 0 : t.g > 0)){
       const wasTall = curSeason.winter ? true : t.g >= 2;   // snowpack always pays full
       if (curSeason.winter){
-        t.snow = 0; t.t = (52 + Math.random()*52)/growthMult; t.cut = tSinceStart;
+        t.snow = 0; t.t = (42 + Math.random()*42)/growthMult; t.cut = tSinceStart;
         for (let i=0;i<7;i++)                  // snow arcs out the back chute
           parts.push({ x: player.x - player.fx*6, y: player.y - player.fy*6 - 10,
             vx: -player.fx*(26 + Math.random()*22) + (Math.random()*14-7),
             vy: -player.fy*(26 + Math.random()*22) - 24 - Math.random()*18,
             t: 0.55, t0: 0.55, col: i%2 ? '#ffffff' : '#dce8f0', size: 2 });
       } else {
-        t.g = 0; t.t = (26 + Math.random()*26)/growthMult; t.cut = tSinceStart;
+        t.g = 0; t.t = (22 + Math.random()*22)/growthMult; t.cut = tSinceStart;
         puff(mx*TILE+8, HUD_H+my*TILE+10, 3, C.g2t, 34);
         puff(mx*TILE+8, HUD_H+my*TILE+9, 2, C.g0aHi, 42);
       }
-      mowCount++; score += wasTall ? 5 : 2;
+      const multBefore = multOf(streak);
+      streak++; streakT = 0;
+      const mult = multOf(streak);
+      if (mult > multBefore){
+        float(player.x, player.y-20, 'STREAK x' + mult + '!', C.accent);
+        beep(392 + mult*90, 0.08, 'square', 0.07);
+      }
+      mowCount++; score += (wasTall ? 5 : 2) * mult;
       sndMow();
       {
         sprayProg += wasTall ? 2 : 1; fertProg += wasTall ? 2 : 1;
@@ -1247,6 +1264,11 @@ function update(dt){
         float(g.x, g.y-10, 'LUCKY GNOME! +50', C.warn);
         puff(g.x, g.y, 14, '#f2d24b', 40);
         sndGnome();
+        if (g.party && ++partyGot === 6){      // caught the whole parade
+          score += 150;
+          float(player.x, player.y-24, 'FULL SET! +150', C.accent);
+          puff(player.x, player.y-8, 20, '#f2d24b', 50);
+        }
         gnomes.splice(gi, 1);
       }
     }
@@ -1277,13 +1299,13 @@ function update(dt){
     if (curSeason.winter){
       if (t.ground === 0 && !t.snow){
         t.t -= dt*growthMult;
-        if (t.t <= 0){ t.snow = 1; t.t = 52 + Math.random()*52; }
+        if (t.t <= 0){ t.snow = 1; t.t = 42 + Math.random()*42; }
       }
       continue;                                // grass and weeds sleep under the snow
     }
     if (t.ground === 0 && t.g < 3){
       t.t -= dt*growthMult*(activeEvent === 'rain' ? 1.6 : 1);   // rain feeds the grass
-      if (t.t <= 0){ t.g++; t.t = 26 + Math.random()*26; }
+      if (t.t <= 0){ t.g++; t.t = 22 + Math.random()*22; }
     }
     if (t.weed){
       t.weed.age += dt;
@@ -1572,6 +1594,16 @@ function update(dt){
   }
   if (shake > 0) shake -= dt;
   flashT = Math.max(0, flashT - dt);
+  if (streak > 0){                             // streaks die after a 2.4s gap
+    streakT += dt;
+    if (streakT > 2.4){
+      if (multOf(streak) >= 2){
+        float(player.x, player.y-20, 'STREAK BROKEN', '#a9b694');
+        beep(196, 0.12, 'square', 0.05);
+      }
+      streak = 0;
+    }
+  }
 }
 function pickDogSpot(d){
   for (let i=0;i<10;i++){
@@ -1589,6 +1621,10 @@ function scareDog(d){
   if (!d || d.state === 'flee' || d.state === 'leave' || d.scareCD > 0) return false;
   d.scareCD = 1.2;
   d.scares++;
+  if (d.state === 'squat'){                    // interrupted mid-business: the skill play
+    score += 30;
+    float(d.x, d.y-26, 'DENIED! +30', C.accent);
+  }
   if (d.big) sndBigBark(); else sndBark();
   if (d.big && d.scares < 3){                  // the big dog merely relocates
     pickDogSpot(d);
@@ -1636,11 +1672,12 @@ function triggerEvent(name){
   } else if (name === 'gnomeparty'){
     say('GNOME PARTY!', 'GRAB THEM BEFORE THEY VANISH');
     sndGnome();
+    partyGot = 0;
     for (let i=0;i<6;i++){
       for (let tries=0;tries<10;tries++){
         const gx = 24 + Math.random()*(W-48), gy = HUD_H + 24 + Math.random()*(GH*TILE-48);
         if (!inHouse(gx, gy, 10)){
-          gnomes.push({ x: gx, y: gy, t: 8.5 + i*0.5, ph: i*1.1 });
+          gnomes.push({ x: gx, y: gy, t: 8.5 + i*0.5, ph: i*1.1, party: true });
           puff(gx, gy, 6, '#f2d24b', 30);
           break;
         }
@@ -2086,6 +2123,11 @@ function drawPlay(){
   if (beerCD <= 0 && Math.floor(tSinceStart*2)%2 === 0){
     ctx.fillStyle = '#ffffff';                  // cooler glint: beer's ready
     ctx.fillRect(HX+25, HY+49, 2, 2);
+  }
+  if (streak > 0 && multOf(streak) >= 2){       // live streak multiplier
+    const ms = multOf(streak);
+    const my2 = Math.round(player.y) - 22 + Math.round(Math.sin(tSinceStart*5));
+    drawText('x' + ms, Math.round(player.x) - 18, my2, 2, C.accent);
   }
   if (buzzT > 0){                               // mug + timer over the driver
     const bx = Math.round(player.x)+8, by = Math.round(player.y)-18;

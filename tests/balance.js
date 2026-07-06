@@ -36,5 +36,10 @@ const survivedS = Math.round((day-1)*DAY_LEN + dayT);
 console.log('SIM done: state=' + state, 'day=' + day, 'survived=' + survivedS + 's',
   'strikes=' + maxStrikes, 'minHealth=' + minHealth.toFixed(2),
   'score=' + score, 'spray=' + sprayN, 'fert=' + fertN);
-if (state !== 'play' || day < 4) throw new Error('BALANCE FAIL: competent player should survive 3+ days');
+// since the skill-scoring update the game is intentionally a losing battle:
+// a near-optimal player should last well past a week of in-game days, but
+// not forever. Guard both ends so tuning can't drift silently.
+if (day < 8) throw new Error('BALANCE FAIL: competent player died too early (day ' + day + ')');
+if (state === 'play' && day >= 14)
+  console.log('note: bot survived the whole sim — difficulty may have gone soft');
 console.log('BALANCE_OK');

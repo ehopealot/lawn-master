@@ -158,6 +158,53 @@ tipsSeen.move = 0; tip('move', 'X'); tipsSeen.move = 1;   // re-arm guard sanity
 if (tipQueue[tipQueue.length-1] !== 'X') throw new Error('tip queue broken');
 tipQueue.length = 0; tipCur = null;
 
+// skill: streak builds along a clean line, dies after a gap
+reset(); state = 'play';
+for (const t of tiles){ t.weed = null; t.poo = null; if (t.ground !== 3){ t.ground = 0; t.g = 2; } }
+player.x = 20; player.y = HUD_H + 20; buzzT = 0;
+keys.right = true;
+for (let i=0;i<160;i++) step(16);
+keys.right = false;
+if (streak < 10) throw new Error('streak did not build: ' + streak);
+if (multOf(streak) < 2) throw new Error('multiplier did not rise');
+for (let i=0;i<200;i++) step(16);
+if (streak !== 0) throw new Error('streak did not break after idle');
+
+// skill: squat denial pays +30
+dogs = [{ x: 300, y: 200, state: 'squat', t: 5, poos: 0, stops: 1,
+          tx: 300, ty: 200, anim: 0, big: false, scares: 0, scareCD: 0 }];
+const sD = score;
+scareDog(dogs[0]);
+if (score - sD < 30) throw new Error('squat denial bonus missing');
+dogs = [];
+
+// skill: one honk, three squirrels = escalating bonus
+for (const t of tiles){ t.weed = null; t.poo = null; if (t.ground === 1 || t.ground === 2) t.ground = 0; }
+squirrels.length = 0;
+player.x = 60; player.y = HUD_H + 120;
+for (let i=0;i<3;i++)
+  squirrels.push({ x: player.x+20+i*10, y: player.y, state:'walk', digT:0, digs:0, tx:0, ty:0, anim:0 });
+const sM = score;
+action();
+if (score - sM !== 60) throw new Error('multi-scram bonus wrong: ' + (score - sM));
+squirrels.length = 0;
+
+// skill: young weed pays more than a mature one
+tiles[1].weed = { age: 2 }; player.x = TILE+8; player.y = HUD_H+8; sprayN = 1;
+const sW = score; action();
+if (score - sW !== 25) throw new Error('young weed bonus wrong: ' + (score - sW));
+
+// skill: collecting all six party gnomes pays the full set bonus
+gnomes = []; triggerEvent('gnomeparty');
+const sG = score;
+for (let gi=0; gi<6; gi++){
+  const g = gnomes[0];
+  player.x = g.x - 4; player.y = g.y;
+  keys.right = true; step(16); keys.right = false;
+}
+if (partyGot !== 6) throw new Error('party pickups not counted: ' + partyGot);
+if (score - sG < 150 + 300) throw new Error('full set bonus missing: ' + (score - sG));
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);
