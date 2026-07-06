@@ -993,8 +993,20 @@ function canvasPos(e){
   const oy = r.top  + (r.height - H*s)/2;
   return { x: (e.clientX - ox)/s, y: (e.clientY - oy)/s };
 }
-cv.addEventListener('pointerdown', (e) => {
-  if (e.pointerType === 'mouse') return;         // mouse players have a keyboard
+/* raw touch events, because e.touches is ground truth: every handler first
+   reconciles our stick against the browser's own list of fingers on glass,
+   so a swallowed lift can never pin the mower past the next touch */
+function clearTouch(){
+  touch.active = false; touch.id = null; touch.dx = 0; touch.dy = 0; touch.moved = false;
+}
+function tFind(list, id){
+  for (let i=0;i<list.length;i++) if (list[i].identifier === id) return list[i];
+  return null;
+}
+function syncTouch(e){
+  if (touch.active && !tFind(e.touches, touch.id)) clearTouch();
+}
+cv.addEventListener('touchstart', (e) => {
   e.preventDefault();
   initAudio(); if (AC && AC.state === 'suspended') AC.resume();
   if (TOUCHCAP && document.fullscreenEnabled && !document.fullscreenElement){
@@ -1006,38 +1018,36 @@ cv.addEventListener('pointerdown', (e) => {
     } catch(err){}
   }
   if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; return; }
-  if (!touch.active || e.pointerId === touch.id){
-    // fresh joystick — or our own pointer id coming down again, which can only
-    // mean we missed its lift (iOS reuses ids): restart instead of staying pinned
-    const p = canvasPos(e);
-    touch.active = true; touch.id = e.pointerId;
+  syncTouch(e);                                  // heal any stale stick first
+  if (!touch.active){
+    const t1 = e.changedTouches[0];
+    const p = canvasPos(t1);
+    touch.active = true; touch.id = t1.identifier;
     touch.ox = p.x; touch.oy = p.y; touch.dx = 0; touch.dy = 0;
     touch.t0 = performance.now(); touch.moved = false;
-    try { cv.setPointerCapture(e.pointerId); } catch(err){}
   } else {
     action();                                    // second finger fires the action
   }
-});
-cv.addEventListener('pointermove', (e) => {
-  if (!touch.active || e.pointerId !== touch.id) return;
+}, { passive: false });
+cv.addEventListener('touchmove', (e) => {
   e.preventDefault();
-  const p = canvasPos(e);
+  syncTouch(e);
+  if (!touch.active) return;
+  const t1 = tFind(e.touches, touch.id);
+  if (!t1) return;
+  const p = canvasPos(t1);
   touch.dx = p.x - touch.ox; touch.dy = p.y - touch.oy;
   if (Math.hypot(touch.dx, touch.dy) > 9) touch.moved = true;
-});
-function clearTouch(){
-  touch.active = false; touch.id = null; touch.dx = 0; touch.dy = 0; touch.moved = false;
+}, { passive: false });
+function touchEnd(e){
+  if (touch.active && tFind(e.changedTouches, touch.id)){
+    if (!touch.moved && performance.now() - touch.t0 < 300) action();   // it was a tap
+    clearTouch();
+  }
+  syncTouch(e);
 }
-function endTouch(e){
-  if (!touch.active || e.pointerId !== touch.id) return;
-  if (!touch.moved && performance.now() - touch.t0 < 300) action();   // it was a tap
-  clearTouch();
-}
-/* lifts can land outside the canvas (screen edges, browser chrome), so listen
-   wide, and clear on anything that could swallow the up event */
-window.addEventListener('pointerup', endTouch, true);
-window.addEventListener('pointercancel', endTouch, true);
-cv.addEventListener('lostpointercapture', endTouch);
+window.addEventListener('touchend', touchEnd, { capture: true });
+window.addEventListener('touchcancel', touchEnd, { capture: true });
 window.addEventListener('blur', clearTouch);
 document.addEventListener('visibilitychange', () => { if (document.hidden) clearTouch(); });
 
@@ -1619,9 +1629,9 @@ function update(dt){
     sndPromo();
   }
 
-  if (streak > 0){                             // streaks die after a 2.4s gap
-    streakT += dt;
-    if (streakT > 2.4){
+  if (streak > 0){                             // streaks die after a 1.5s gap:
+    streakT += dt;                             // row turns survive, cruising doesn't
+    if (streakT > 1.5){
       if (multOf(streak) >= 2){
         float(player.x, player.y-20, 'STREAK BROKEN', '#a9b694');
         beep(196, 0.12, 'square', 0.05);
