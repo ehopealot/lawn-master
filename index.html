@@ -106,7 +106,7 @@ const STANDALONE = (typeof navigator !== 'undefined' && navigator.standalone ===
 const NARROW = TOUCHCAP;                      // phones play a tall vertical yard
 
 const TILE = 16, HUD_H = NARROW ? 40 : 32;
-const GW = NARROW ? 15 : 30, GH = NARROW ? 30 : 19;   // phones: fewer, bigger tiles
+const GW = NARROW ? 16 : 30, GH = NARROW ? 30 : 19;   // phones: fewer, bigger tiles
 const W = GW*TILE, H = HUD_H + GH*TILE;
 cv.width = W; cv.height = H;                  // resizing the canvas resets ctx state,
 ctx.imageSmoothingEnabled = false;            // so set this after
