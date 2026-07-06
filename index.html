@@ -1254,6 +1254,7 @@ function update(dt){
       if (mult > multBefore){
         float(player.x, player.y-20, 'STREAK x' + mult + '!', C.accent);
         beep(392 + mult*90, 0.08, 'square', 0.07);
+        tip('streak', 'STREAK! KEEP CUTTING WITHOUT GAPS|TO MULTIPLY YOUR MOWING POINTS');
       }
       mowCount++; score += (wasTall ? 5 : 2) * mult;
       sndMow();
