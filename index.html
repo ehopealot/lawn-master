@@ -102,7 +102,7 @@
   &nbsp;<b>spray / fix / honk</b> <span class="k">space</span>
   &nbsp;<b>pause</b> <span class="k">P</span>
   &nbsp;<b>sound</b> <span class="k">M</span><br>
-  mow grass to earn spray &amp; fertilizer &middot; stay above 45% &mdash; one HOA letter ends it<br>
+  mow grass to earn spray &amp; fertilizer &middot; stay above 40% &mdash; one HOA letter ends it<br>
   grab a cold one at the house &mdash; faster mowing, questionable steering<br>
   the neighborhood dog does his business on your turf &mdash; bag it before the HOA sees
 </div>
@@ -1556,14 +1556,14 @@ function update(dt){
   health = good/(total || 1);
   if (!hoaActive && tSinceStart > 25){
     hoaActive = true;
-    say('THE HOA IS WATCHING', 'KEEP THE LAWN ABOVE 45%');
-    tip('hoa', 'THE HOA IS WATCHING NOW|KEEP THE LAWN METER ABOVE 45%');
+    say('THE HOA IS WATCHING', 'KEEP THE LAWN ABOVE 40%');
+    tip('hoa', 'THE HOA IS WATCHING NOW|KEEP THE LAWN METER ABOVE 40%');
   }
-  if (hoaActive && health < 0.45){
-    complaint += dt * (0.45-health) * 0.32;
+  if (hoaActive && health < 0.40){
+    complaint += dt * (0.40-health) * 0.32;
     if (!complaintWarned && complaint > 0.5){
       complaintWarned = true;
-      say('THE HOA INSPECTOR IS HERE', 'GET THE YARD ABOVE 45% NOW');
+      say('THE HOA INSPECTOR IS HERE', 'GET THE YARD ABOVE 40% NOW');
       sndBad(); shake = 0.3;
       inspector = { x: -12, y: H-18, state:'walk', dir: 1, anim: 0, scribT: 2 };
     }
@@ -2064,8 +2064,8 @@ function drawHUD(){
   ctx.fillStyle = C.hudEdge; ctx.fillRect(0, 0, W, 1);
   ctx.fillStyle = C.hudLine; ctx.fillRect(0, HUD_H-2, W, 2);
 
-  let hcol = health >= 0.6 ? C.accent : health >= 0.45 ? C.warn : C.bad;
-  if (hoaActive && health < 0.45 && Math.floor(tSinceStart*3)%2 === 0)
+  let hcol = health >= 0.6 ? C.accent : health >= 0.40 ? C.warn : C.bad;
+  if (hoaActive && health < 0.40 && Math.floor(tSinceStart*3)%2 === 0)
     hcol = C.cream;                              // in violation: the % blinks
   const cflash = complaint > 0.6 && Math.floor(tSinceStart*4)%2===0;
   const sstr = String(score);

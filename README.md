@@ -38,7 +38,7 @@ finger. Tap to act (a second finger while steering works too).
   if you can; bag it if you can't. The **big dog** doesn't scare easily — he
   just relocates. Chase him three times to be rid of him.
 - **Dry patches** bake into the lawn from day 2. Reseed with fertilizer.
-- **The HOA is watching.** Below 45% lawn health, the complaint meter fills.
+- **The HOA is watching.** Below 40% lawn health, the complaint meter fills.
   You'll be warned when they start drafting. **One letter and you're done.**
 - **The cooler on the porch** holds a cold one: +35% speed for 12 seconds,
   steering optional.
