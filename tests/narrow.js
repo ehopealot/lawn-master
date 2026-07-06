@@ -1,8 +1,8 @@
 // vertical-yard (phone) mode: dimensions, house placement, play, render paths
 if (!NARROW) throw new Error('narrow stub did not trigger NARROW mode');
-if (W !== 272 || H !== 584 || GW !== 17 || GH !== 34 || HUD_H !== 40)
+if (W !== 240 || H !== 520 || GW !== 15 || GH !== 30 || HUD_H !== 40)
   throw new Error('narrow dims wrong: ' + W + 'x' + H + ' grid ' + GW + 'x' + GH);
-if (HOUSE_TX !== 12 || HOUSE_TY !== 15)
+if (HOUSE_TX !== 10 || HOUSE_TY !== 13)
   throw new Error('house placement wrong: ' + HOUSE_TX + ',' + HOUSE_TY);
 if (COOLER.x >= W || HY + HPH > H) throw new Error('house overflows canvas');
 

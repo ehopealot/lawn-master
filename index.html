@@ -106,7 +106,7 @@ const STANDALONE = (typeof navigator !== 'undefined' && navigator.standalone ===
 const NARROW = TOUCHCAP;                      // phones play a tall vertical yard
 
 const TILE = 16, HUD_H = NARROW ? 40 : 32;
-const GW = NARROW ? 17 : 30, GH = NARROW ? 34 : 19;   // ~same tile count either way
+const GW = NARROW ? 15 : 30, GH = NARROW ? 30 : 19;   // phones: fewer, bigger tiles
 const W = GW*TILE, H = HUD_H + GH*TILE;
 cv.width = W; cv.height = H;                  // resizing the canvas resets ctx state,
 ctx.imageSmoothingEnabled = false;            // so set this after
@@ -804,12 +804,12 @@ function reset(){
   squirrels = []; parts = []; floats = []; announce = [];
   day = 1; dayT = 0; score = 0; mowCount = 0;
   sprayN = 4; fertN = 3; sprayProg = 0; fertProg = 0;
-  bagN = 2; bagProg = 0; dogs = []; dogTimer = 11 + Math.random()*6;
-  eventTimer = 30 + Math.random()*12; activeEvent = null; eventT = 0; droughtTick = 0;
+  bagN = 2; bagProg = 0; dogs = []; dogTimer = 9 + Math.random()*5;
+  eventTimer = 24 + Math.random()*10; activeEvent = null; eventT = 0; droughtTick = 0;
   lastRank = -1;
   strikes = 0; complaint = 0; health = 1; gnomes = []; tSinceStart = 0;
   hoaActive = false; complaintWarned = false;
-  weedTimer = 8; squirrelTimer = 12; dryTimer = 24;
+  weedTimer = 6; squirrelTimer = 9; dryTimer = 18;
   butterflies = []; exhaustT = 0; buzzT = 0; beerCD = 0;
   const s0 = seasonFor(1);
   if (curSeason !== s0){ curSeason = s0; buildGrassTiles(s0); }
@@ -1196,7 +1196,7 @@ function update(dt){
   /* spawns */
   weedTimer -= dt;
   if (weedTimer <= 0){
-    weedTimer = Math.max(4, 9*Math.pow(0.92, lvl-1)) * (0.7+Math.random()*0.6);
+    weedTimer = Math.max(3, 7*Math.pow(0.92, lvl-1)) * (0.7+Math.random()*0.6);
     if (!curSeason.winter){
       const cand = tiles[(Math.random()*tiles.length)|0];
       if (!cand.weed && cand.ground === 0) cand.weed = {age:0};
@@ -1204,7 +1204,7 @@ function update(dt){
   }
   squirrelTimer -= dt;
   if (squirrelTimer <= 0 && squirrels.length < 3){
-    squirrelTimer = Math.max(7, 15*Math.pow(0.94, lvl-1)) * (0.7+Math.random()*0.6);
+    squirrelTimer = Math.max(6, 12*Math.pow(0.94, lvl-1)) * (0.7+Math.random()*0.6);
     const fromLeft = Math.random() < 0.5;
     squirrels.push({
       x: fromLeft ? -12 : W+12,
@@ -1216,7 +1216,7 @@ function update(dt){
   if (day >= 2 && !curSeason.winter){
     dryTimer -= dt;
     if (dryTimer <= 0){
-      dryTimer = Math.max(11, 20 - lvl*1.2);
+      dryTimer = Math.max(9, 16 - lvl);
       const i = (Math.random()*tiles.length)|0;
       const t = tiles[i];
       if (t.ground === 0){
@@ -1226,7 +1226,7 @@ function update(dt){
     }
   }
   /* gnomes */
-  if (gnomes.length === 0 && Math.random() < dt/30){
+  if (gnomes.length === 0 && Math.random() < dt/24){
     const gx = 24 + Math.random()*(W-48), gy = HUD_H + 24 + Math.random()*(GH*TILE-48);
     if (!inHouse(gx, gy, 10)){
       gnomes.push({ x: gx, y: gy, t: 12, ph: 0 });
@@ -1284,7 +1284,7 @@ function update(dt){
   if (day >= 2){
     eventTimer -= dt;
     if (eventTimer <= 0){
-      eventTimer = 27 + Math.random()*18;
+      eventTimer = 22 + Math.random()*14;
       const opts = ['stampede', 'dogpark', 'gnomeparty'];
       if (curSeason === SEASONS[0]) opts.push('drought');   // droughts are a summer thing
       triggerEvent(opts[(Math.random()*opts.length)|0]);
@@ -1311,7 +1311,7 @@ function update(dt){
   if (dogs.length === 0){
     dogTimer -= dt;
     if (dogTimer <= 0){
-      dogTimer = 16 + Math.random()*12;
+      dogTimer = 13 + Math.random()*9;
       dogs.push(spawnDog(day >= 3 && Math.random() < 0.25, false));
     }
   }
@@ -1808,16 +1808,17 @@ function drawHUD(){
     meter(118, 13, 26, complaint, cflash ? C.cream : C.bad);
     drawText('SCORE', W-8-textW('SCORE',1), 3, 1, C.label);
     drawText(sstr, W-8-textW(sstr,2), 10, 2, C.cream);
-    /* row 2: supplies */
-    drawMap(ICON_SPRAY, 8, 23, false);
-    drawText('x' + sprayN, 18, 24, 2, sprayN === 0 ? C.bad : C.cream);
-    meter(48, 27, 30, sprayProg/SPRAY_EVERY, '#7db95a');
-    drawMap(ICON_BAG, 96, 23, false);
-    drawText('x' + fertN, 106, 24, 2, fertN === 0 ? C.bad : C.cream);
-    meter(136, 27, 30, fertProg/FERT_EVERY, C.warn);
-    drawMap(ICON_DOGBAG, 184, 23, false);
-    drawText('x' + bagN, 194, 24, 2, bagN === 0 ? C.bad : C.cream);
-    meter(224, 27, 30, bagProg/BAG_EVERY, '#8fb8e8');
+    /* row 2: supplies, columns split across whatever width we have */
+    const rc = [8, ((W/3)|0)+8, ((2*W/3)|0)+8];
+    drawMap(ICON_SPRAY, rc[0], 23, false);
+    drawText('x' + sprayN, rc[0]+10, 24, 2, sprayN === 0 ? C.bad : C.cream);
+    meter(rc[0]+40, 27, 28, sprayProg/SPRAY_EVERY, '#7db95a');
+    drawMap(ICON_BAG, rc[1], 23, false);
+    drawText('x' + fertN, rc[1]+10, 24, 2, fertN === 0 ? C.bad : C.cream);
+    meter(rc[1]+40, 27, 28, fertProg/FERT_EVERY, C.warn);
+    drawMap(ICON_DOGBAG, rc[2], 23, false);
+    drawText('x' + bagN, rc[2]+10, 24, 2, bagN === 0 ? C.bad : C.cream);
+    meter(rc[2]+40, 27, 28, bagProg/BAG_EVERY, '#8fb8e8');
   } else {
     ctx.fillStyle = C.hudDiv;
     for (const dx of [62, 94, 136, 178, 222]) ctx.fillRect(dx, 4, 1, 24);
