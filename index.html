@@ -229,19 +229,19 @@ const MOWER_U = [
 const toBlower = m => m.map(r => r.replace(/r/g,'n').replace(/d/g,'N').replace(/u/g,'c'));
 const BLOWER_D = toBlower(MOWER_D), BLOWER_U = toBlower(MOWER_U);
 const BLOWER_R = [
-  "...........kkk....",
-  "....kkkk...kgk....",
-  "...kcccck..kgk....",
-  "...kcsssk..kgk....",
-  "....kssk...kgk....",
-  "...kbbbbk..kgk....",
-  "..kbbbbbbk.kggk...",
-  "..kbbbbbbkknnnnk..",
-  ".knnnnnnnkNwwNNk..",
-  ".knnnnnnnkNNwwNk..",
-  ".kkxxkkkkkNwwNNk..",
-  ".kkxxkk...kkkkkk..",
-  "..kkkk....kkkk....",
+  "kkk...............",
+  "kgk...............",
+  ".kgk..w...........",
+  ".kgk...kccck......",
+  "..kgk..kwwwwk.....",
+  "..kgk...kssk......",
+  "...kgkkkbbbbk.....",
+  "...kkbbbbbbbkk....",
+  "..knnnnnnnnkNwwNk.",
+  "..knnnnnnnnkNNwwk.",
+  "..kkxxkkkkkkNwwNk.",
+  "..kkxxkk...kkkkk..",
+  "...kkkk....kkk....",
 ];
 const INSPECT1 = [
   "...xxx....",
@@ -1141,10 +1141,11 @@ function update(dt){
       const wasTall = curSeason.winter ? true : t.g >= 2;   // snowpack always pays full
       if (curSeason.winter){
         t.snow = 0; t.t = (52 + Math.random()*52)/growthMult; t.cut = tSinceStart;
-        for (let i=0;i<7;i++)                  // snow arcs out the chute
-          parts.push({ x: mx*TILE+8, y: HUD_H+my*TILE+8,
-            vx: (Math.random()*30-15) - player.fy*36, vy: -28 - Math.random()*26,
-            t: 0.5, t0: 0.5, col: i%2 ? '#ffffff' : '#dce8f0', size: 2 });
+        for (let i=0;i<7;i++)                  // snow arcs out the back chute
+          parts.push({ x: player.x - player.fx*4, y: player.y - player.fy*4 - 6,
+            vx: -player.fx*(26 + Math.random()*22) + (Math.random()*14-7),
+            vy: -player.fy*(26 + Math.random()*22) - 24 - Math.random()*18,
+            t: 0.55, t0: 0.55, col: i%2 ? '#ffffff' : '#dce8f0', size: 2 });
       } else {
         t.g = 0; t.t = (26 + Math.random()*26)/growthMult; t.cut = tSinceStart;
         puff(mx*TILE+8, HUD_H+my*TILE+10, 3, C.g2t, 34);
@@ -1791,17 +1792,26 @@ function drawMower(x, y){
     drawMap(wint ? BLOWER_R : MOWER_R, rx-9, ry-7+bob, player.fx < 0);
   } else if (player.fy > 0){
     drawMap(wint ? BLOWER_D : MOWER_D, rx-7, ry-8+bob, false);
-    if (wint){                                  // auger bar churning up front
+    if (wint){                                  // auger up front, chute out the back
       ctx.fillStyle = '#1c1a16'; ctx.fillRect(rx-6, ry+5+bob, 12, 3);
       ctx.fillStyle = '#f5f2e8';
       ctx.fillRect(rx-4 + (Math.floor(tSinceStart*10)%3)*3, ry+6+bob, 2, 1);
+      ctx.fillStyle = '#56524a';
+      ctx.fillRect(rx-1, ry-12+bob, 3, 5);
+      ctx.fillRect(rx-2, ry-13+bob, 5, 2);
+      ctx.fillStyle = '#f5f2e8';                // santa trim + pom
+      ctx.fillRect(rx-3, ry-6+bob, 6, 1);
+      ctx.fillRect(rx+3, ry-9+bob, 2, 2);
     }
   } else {
     drawMap(wint ? BLOWER_U : MOWER_U, rx-7, ry-6+bob, false);
-    if (wint){                                  // chute rises over the driver's cap
+    if (wint){                                  // rear view: the chute mouth faces us
       ctx.fillStyle = '#56524a';
-      ctx.fillRect(rx-1, ry-11+bob, 3, 5);
-      ctx.fillRect(rx-2, ry-12+bob, 5, 2);
+      ctx.fillRect(rx-2, ry+6+bob, 5, 3);
+      ctx.fillStyle = '#1c1a16';
+      ctx.fillRect(rx-1, ry+7+bob, 3, 1);
+      ctx.fillStyle = '#f5f2e8';                // santa pom from behind
+      ctx.fillRect(rx-1, ry-7+bob, 2, 2);
     }
   }
 }
