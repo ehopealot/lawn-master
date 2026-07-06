@@ -207,10 +207,10 @@ if (partyGot !== 6) throw new Error('party pickups not counted: ' + partyGot);
 if (score - sG < 150 + 300) throw new Error('full set bonus missing: ' + (score - sG));
 
 // promotions: score milestones grant rank and speed
-score = 5999; promo = 0;
+score = 6999; promo = 0;
 step(16);
 if (promo !== 0) throw new Error('promoted too early');
-score = 14500;
+score = 18500;
 step(16);
 if (promo !== 2) throw new Error('promotions did not catch up: ' + promo);
 
