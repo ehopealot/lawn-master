@@ -30,4 +30,9 @@ for driver in render smoke balance; do
   node "$tmp/test-$driver.js"
 done
 
+# phones boot a vertical yard; stub-narrow reports a coarse pointer
+echo "== narrow =="
+cat stub-narrow.js "$tmp/game.js" narrow.js > "$tmp/test-narrow.js"
+node "$tmp/test-narrow.js"
+
 echo "ALL TESTS PASSED"

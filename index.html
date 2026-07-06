@@ -62,7 +62,7 @@
     }
     canvas{width:100% !important;height:100% !important;object-fit:contain;}
   }
-  @media (pointer:coarse) and (orientation:portrait){
+  @media (pointer:coarse) and (orientation:landscape){
     #rotate{display:flex;}
   }
   .legend{
@@ -80,7 +80,7 @@
 
 <div id="cab"><canvas id="game" width="480" height="336"></canvas></div>
 
-<div id="rotate"><div><span class="arr">&#8635;</span>ROTATE YOUR PHONE<br>THE LAWN IS WIDE</div></div>
+<div id="rotate"><div><span class="arr">&#8635;</span>ROTATE YOUR PHONE<br>THE LAWN IS TALL</div></div>
 
 <div class="legend" id="legend">
   <b>drive</b> <span class="k">W A S D</span>/<span class="k">arrows</span>
@@ -99,10 +99,17 @@
 ======================================================================== */
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
-ctx.imageSmoothingEnabled = false;
 
-const W = 480, H = 336, TILE = 16, HUD_H = 32;
-const GW = 30, GH = 19;                       // 30 x 19 tiles below the HUD
+const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+const STANDALONE = (typeof navigator !== 'undefined' && navigator.standalone === true) ||
+  !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+const NARROW = TOUCHCAP;                      // phones play a tall vertical yard
+
+const TILE = 16, HUD_H = NARROW ? 40 : 32;
+const GW = NARROW ? 17 : 30, GH = NARROW ? 34 : 19;   // ~same tile count either way
+const W = GW*TILE, H = HUD_H + GH*TILE;
+cv.width = W; cv.height = H;                  // resizing the canvas resets ctx state,
+ctx.imageSmoothingEnabled = false;            // so set this after
 
 /* ---------- palette ---------- */
 const C = {
@@ -552,7 +559,8 @@ const TCS = [[],[],[]];
 })();
 
 /* ---------- the house (solid footprint on the right edge) ---------- */
-const HOUSE_TX = 25, HOUSE_TY = 7, HOUSE_TW = 5, HOUSE_TH = 4;
+const HOUSE_TW = 5, HOUSE_TH = 4;
+const HOUSE_TX = GW - HOUSE_TW, HOUSE_TY = Math.floor(GH/2) - 2;
 const HX = HOUSE_TX*TILE, HY = HUD_H + HOUSE_TY*TILE;
 const HPW = HOUSE_TW*TILE, HPH = HOUSE_TH*TILE;
 const COOLER = { x: HX+29, y: HY+56 };
@@ -860,9 +868,6 @@ window.addEventListener('keyup', (e) => {
 });
 
 /* touch: floating joystick wherever the finger lands; tap = action */
-const TOUCHCAP = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-const STANDALONE = (typeof navigator !== 'undefined' && navigator.standalone === true) ||
-  !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 
 /* desktop: size the canvas to fill the window, leaving room for the legend.
    mobile: CSS owns sizing entirely (fixed full-viewport container +
@@ -923,7 +928,7 @@ cv.addEventListener('pointerdown', (e) => {
       const cab = document.getElementById('cab');
       if (cab && cab.requestFullscreen) cab.requestFullscreen().catch(() => {});
       if (screen.orientation && screen.orientation.lock)
-        screen.orientation.lock('landscape').catch(() => {});
+        screen.orientation.lock('portrait').catch(() => {});
     } catch(err){}
   }
   if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; return; }
@@ -1779,42 +1784,69 @@ function meter(x, y, w, frac, col){
   ctx.fillStyle = col; ctx.fillRect(x, y, Math.round(w*Math.max(0, Math.min(1, frac))), 3);
 }
 function drawHUD(){
-  ctx.fillStyle = C.hudTop; ctx.fillRect(0, 0, W, 16);
-  ctx.fillStyle = C.hudBg; ctx.fillRect(0, 16, W, HUD_H-16);
+  const half = (HUD_H/2)|0;
+  ctx.fillStyle = C.hudTop; ctx.fillRect(0, 0, W, half);
+  ctx.fillStyle = C.hudBg; ctx.fillRect(0, half, W, HUD_H-half);
   ctx.fillStyle = C.hudEdge; ctx.fillRect(0, 0, W, 1);
   ctx.fillStyle = C.hudLine; ctx.fillRect(0, HUD_H-2, W, 2);
-  ctx.fillStyle = C.hudDiv;
-  for (const dx of [62, 94, 136, 178, 222]) ctx.fillRect(dx, 4, 1, 24);
 
   const hcol = health >= 0.6 ? C.accent : health >= 0.45 ? C.warn : C.bad;
-  drawText(curSeason.winter ? 'CLEAR' : 'LAWN', 8, 5, 1, C.label);
-  drawText(Math.round(health*100) + '%', 8, 14, 2, hcol);
-
-  drawText('DAY', 70, 5, 1, C.label);
-  drawText(String(day), 70, 14, 2, C.cream);
-  meter(70, 27, 22, dayT/DAY_LEN, C.accent);
-
-  drawMap(ICON_SPRAY, 100, 8, false);
-  drawText('x' + sprayN, 110, 10, 2, sprayN === 0 ? C.bad : C.cream);
-  meter(100, 27, 26, sprayProg/SPRAY_EVERY, '#7db95a');
-
-  drawMap(ICON_BAG, 142, 8, false);
-  drawText('x' + fertN, 152, 10, 2, fertN === 0 ? C.bad : C.cream);
-  meter(142, 27, 26, fertProg/FERT_EVERY, C.warn);
-
-  drawMap(ICON_DOGBAG, 184, 8, false);
-  drawText('x' + bagN, 194, 10, 2, bagN === 0 ? C.bad : C.cream);
-  meter(184, 27, 26, bagProg/BAG_EVERY, '#8fb8e8');
-
-  drawText('HOA', 228, 5, 1, C.label);
   const cflash = complaint > 0.6 && Math.floor(tSinceStart*4)%2===0;
-  if (strikes >= 1) drawMap(ICON_MAIL, 230, 13, false);
-  else { ctx.strokeStyle = cflash ? C.bad : '#3a5a3c'; ctx.strokeRect(230.5, 13.5, 8, 6); }
-  meter(228, 27, 26, complaint, cflash ? C.cream : C.bad);
-
   const sstr = String(score);
-  drawText('SCORE', W-8-textW('SCORE',1), 5, 1, C.label);
-  drawText(sstr, W-8-textW(sstr,2), 14, 2, C.cream);
+
+  if (NARROW){
+    /* row 1: lawn, day, HOA, score */
+    drawText(curSeason.winter ? 'CLEAR' : 'LAWN', 8, 3, 1, C.label);
+    drawText(Math.round(health*100) + '%', 8, 10, 2, hcol);
+    drawText('DAY', 66, 3, 1, C.label);
+    drawText(String(day), 66, 10, 2, C.cream);
+    drawText('HOA', 104, 3, 1, C.label);
+    if (strikes >= 1) drawMap(ICON_MAIL, 104, 11, false);
+    else { ctx.strokeStyle = cflash ? C.bad : '#3a5a3c'; ctx.strokeRect(104.5, 11.5, 8, 6); }
+    meter(118, 13, 26, complaint, cflash ? C.cream : C.bad);
+    drawText('SCORE', W-8-textW('SCORE',1), 3, 1, C.label);
+    drawText(sstr, W-8-textW(sstr,2), 10, 2, C.cream);
+    /* row 2: supplies */
+    drawMap(ICON_SPRAY, 8, 23, false);
+    drawText('x' + sprayN, 18, 24, 2, sprayN === 0 ? C.bad : C.cream);
+    meter(48, 27, 30, sprayProg/SPRAY_EVERY, '#7db95a');
+    drawMap(ICON_BAG, 96, 23, false);
+    drawText('x' + fertN, 106, 24, 2, fertN === 0 ? C.bad : C.cream);
+    meter(136, 27, 30, fertProg/FERT_EVERY, C.warn);
+    drawMap(ICON_DOGBAG, 184, 23, false);
+    drawText('x' + bagN, 194, 24, 2, bagN === 0 ? C.bad : C.cream);
+    meter(224, 27, 30, bagProg/BAG_EVERY, '#8fb8e8');
+  } else {
+    ctx.fillStyle = C.hudDiv;
+    for (const dx of [62, 94, 136, 178, 222]) ctx.fillRect(dx, 4, 1, 24);
+
+    drawText(curSeason.winter ? 'CLEAR' : 'LAWN', 8, 5, 1, C.label);
+    drawText(Math.round(health*100) + '%', 8, 14, 2, hcol);
+
+    drawText('DAY', 70, 5, 1, C.label);
+    drawText(String(day), 70, 14, 2, C.cream);
+    meter(70, 27, 22, dayT/DAY_LEN, C.accent);
+
+    drawMap(ICON_SPRAY, 100, 8, false);
+    drawText('x' + sprayN, 110, 10, 2, sprayN === 0 ? C.bad : C.cream);
+    meter(100, 27, 26, sprayProg/SPRAY_EVERY, '#7db95a');
+
+    drawMap(ICON_BAG, 142, 8, false);
+    drawText('x' + fertN, 152, 10, 2, fertN === 0 ? C.bad : C.cream);
+    meter(142, 27, 26, fertProg/FERT_EVERY, C.warn);
+
+    drawMap(ICON_DOGBAG, 184, 8, false);
+    drawText('x' + bagN, 194, 10, 2, bagN === 0 ? C.bad : C.cream);
+    meter(184, 27, 26, bagProg/BAG_EVERY, '#8fb8e8');
+
+    drawText('HOA', 228, 5, 1, C.label);
+    if (strikes >= 1) drawMap(ICON_MAIL, 230, 13, false);
+    else { ctx.strokeStyle = cflash ? C.bad : '#3a5a3c'; ctx.strokeRect(230.5, 13.5, 8, 6); }
+    meter(228, 27, 26, complaint, cflash ? C.cream : C.bad);
+
+    drawText('SCORE', W-8-textW('SCORE',1), 5, 1, C.label);
+    drawText(sstr, W-8-textW(sstr,2), 14, 2, C.cream);
+  }
 
   /* context hint */
   if (state === 'play'){
@@ -1890,13 +1922,15 @@ function drawPlay(){
   }
   drawHUD();
 
+  const ay = (H*0.36)|0;
   for (const an of announce){
     const a = Math.min(1, an.t/0.5);
+    const bsc = textW(an.big, 3) > W-12 ? 2 : 3;   // long banners shrink on narrow yards
     ctx.globalAlpha = a;
     ctx.fillStyle = 'rgba(16,21,13,0.72)';
-    ctx.fillRect(0, 120, W, an.small ? 52 : 36);
-    drawTextC(an.big, W/2, 130, 3, C.cream);
-    if (an.small) drawTextC(an.small, W/2, 152, 1, C.accent);
+    ctx.fillRect(0, ay, W, an.small ? 52 : 36);
+    drawTextC(an.big, W/2, ay+10, bsc, C.cream);
+    if (an.small) drawTextC(an.small, W/2, ay+32, 1, C.accent);
     ctx.globalAlpha = 1;
   }
   if (touch.active && touch.moved){              // floating joystick
@@ -1915,8 +1949,8 @@ function drawPlay(){
   }
   if (paused){
     ctx.fillStyle = 'rgba(16,21,13,0.7)'; ctx.fillRect(0, 0, W, H);
-    drawTextC('PAUSED', W/2, 150, 3, C.cream);
-    drawTextC('P TO RESUME', W/2, 176, 1, C.accent);
+    drawTextC('PAUSED', W/2, (H*0.44)|0, 3, C.cream);
+    drawTextC('P TO RESUME', W/2, (H*0.44)|0 + 26, 1, C.accent);
   }
   if (muted) drawText('MUTE', W-8-textW('MUTE',1), H-9, 1, '#5a6a52');
 }
@@ -1948,7 +1982,7 @@ function drawTitle(){
   ctx.fillStyle = '#9fd6ef'; ctx.fillRect(0, 96, W, 60);
   ctx.fillStyle = '#c6e9f6'; ctx.fillRect(0, 156, W, H-156);
   /* sun with twinkling rays */
-  const sx = 430, sy = 30;
+  const sx = W - 52, sy = 30;
   ctx.fillStyle = '#ffe08a';
   if (Math.floor(t*1.5)%2===0){
     ctx.fillRect(sx-12, sy-1, 5, 2); ctx.fillRect(sx+8, sy-1, 5, 2);
@@ -1965,9 +1999,9 @@ function drawTitle(){
     drawCloudPix(cx2, 14 + i*24);
   }
   /* neighborhood: houses behind a hedge behind a fence */
-  drawHouse(38, H-62, '#c8b49a', '#8c5a48');
-  drawHouse(196, H-62, '#b0c4cc', '#5c6e78');
-  drawHouse(368, H-62, '#d4c2a0', '#7a5a44');
+  drawHouse((W*0.08)|0, H-62, '#c8b49a', '#8c5a48');
+  drawHouse((W*0.42)|0, H-62, '#b0c4cc', '#5c6e78');
+  drawHouse((W*0.77)|0, H-62, '#d4c2a0', '#7a5a44');
   ctx.fillStyle = '#2c5424'; ctx.fillRect(0, H-60, W, 16);
   ctx.fillStyle = '#356329';
   for (let x=0;x<W;x+=8) ctx.fillRect(x, H-62 + (x%16===0 ? 0 : 2), 8, 4);
@@ -1993,21 +2027,23 @@ function drawTitle(){
   drawShadow(titleMowerX+9, H-26, 16);
   drawMap(MOWER_R, Math.round(titleMowerX), H-34+bob, false);
   /* logo: outline + two-tone fill */
-  const ly = 50, sc = 8;
+  const ly = 50, sc = NARROW ? 5 : 8;
+  const split = Math.round(sc*2.75);
   drawTextC('LAWNMASTER', W/2+3, ly+4, sc, 'rgba(10,46,18,0.35)');
   for (const o of [[-2,0],[2,0],[0,-2],[0,2],[-1,-1],[1,-1],[-1,1],[1,1]])
     drawTextC('LAWNMASTER', W/2+o[0], ly+o[1], sc, '#1e3a12');
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, ly, W, 22); ctx.clip();
+  ctx.beginPath(); ctx.rect(0, ly, W, split); ctx.clip();
   drawTextC('LAWNMASTER', W/2, ly, sc, '#d3f292');
   ctx.restore();
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, ly+22, W, 20); ctx.clip();
+  ctx.beginPath(); ctx.rect(0, ly+split, W, sc*5-split+2); ctx.clip();
   drawTextC('LAWNMASTER', W/2, ly, sc, '#7fc040');
   ctx.restore();
   /* copy panel */
+  const ppx = Math.max(8, ((W-368)/2)|0);
   ctx.fillStyle = 'rgba(16,21,13,0.55)';
-  ctx.fillRect(56, 104, W-112, 112);
+  ctx.fillRect(ppx, 104, W-ppx*2, 112);
   drawTextC('TURF MAINTENANCE SIMULATOR', W/2, 112, 1, C.cream);
   drawTextC('MOW. SPRAY. HONK. SURVIVE THE HOA.', W/2, 126, 1, '#c9d6ae');
   drawTextC(TOUCHCAP ? 'DRAG ANYWHERE TO DRIVE' : 'DRIVE: WASD / ARROWS', W/2, 146, 1, '#a3b18c');

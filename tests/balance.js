@@ -9,7 +9,7 @@ reset(); state = 'play';
 const wps = [];
 for (let r=0;r<GH;r++){
   const y = HUD_H + 8 + r*TILE;
-  const maxX = (r >= 6 && r <= 11) ? HX-14 : W-16;   // steer around the house
+  const maxX = (r >= HOUSE_TY-1 && r <= HOUSE_TY+HOUSE_TH) ? HX-14 : W-16;   // steer around the house
   if (r%2===0){ wps.push([16,y],[maxX,y]); } else { wps.push([maxX,y],[16,y]); }
 }
 let wi = 0;
