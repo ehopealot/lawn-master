@@ -1193,7 +1193,7 @@ function update(dt){
       const rx = vx*ca - vy*sa, ry = vx*sa + vy*ca;
       vx = rx; vy = ry;
     }
-    const baseSPD = 88 * (1 + 0.05*promo);     // each promotion is +5% for life
+    const baseSPD = 88 * (1 + 0.10*promo);     // each promotion is +10% for life
     const SPD = buzzT > 0 ? baseSPD*1.34 : baseSPD;
     player.x = Math.max(8, Math.min(W-8, player.x + vx*SPD*dt));
     player.y = Math.max(HUD_H+8, Math.min(H-8, player.y + vy*SPD*dt));
