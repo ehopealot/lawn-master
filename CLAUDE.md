@@ -1,7 +1,7 @@
 # Lawnmaster — project notes for Claude
 
 Retro pixel lawn-care arcade game. One file, zero dependencies.
-Live: https://ehopealot.github.io/lawn-master/ (GitHub Pages; Erik pushes).
+Live: https://ehopealot.github.io/lawn-master/ (GitHub Pages).
 
 ## Layout
 - `index.html` — the entire game (~2700 lines vanilla JS on canvas).
@@ -23,11 +23,11 @@ Live: https://ehopealot.github.io/lawn-master/ (GitHub Pages; Erik pushes).
   W is a special 5px-wide glyph.
 
 ## Balance philosophy
-The game is a losing battle by design (Erik: "I get bored before I lose").
-Growth ramps forever; promotions (+10% speed per rank at score milestones)
-let skill extend a run. The near-optimal bot dies ~day 26 at ~77k — just
-short of the 80k LAWNMASTER rank, and that's intentional. After any pacing
-change, run the balance suite AND an extended sim (raise the frame cap in
+The game is a losing battle by design. Growth ramps forever;
+promotions (+10% speed per rank at score milestones) let skill extend
+a run. The near-optimal bot dies ~day 26 at ~77k — just short of the
+80k LAWNMASTER rank, and that's intentional. After any pacing change,
+run the balance suite AND an extended sim (raise the frame cap in
 tests/balance.js to ~80000) to confirm death remains inevitable.
 
 Secret: Cmd/Ctrl+Enter on the title starts in winter (`seasonShift = 3`).
