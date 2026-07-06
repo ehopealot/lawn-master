@@ -197,7 +197,8 @@ if (score - sW !== 25) throw new Error('young weed bonus wrong: ' + (score - sW)
 // skill: collecting all six party gnomes pays the full set bonus
 gnomes = []; triggerEvent('gnomeparty');
 const sG = score;
-for (let gi=0; gi<6; gi++){
+let guard3 = 20;                      // one step can collect two clustered gnomes
+while (gnomes.length && guard3-- > 0){
   const g = gnomes[0];
   player.x = g.x - 4; player.y = g.y;
   keys.right = true; step(16); keys.right = false;
