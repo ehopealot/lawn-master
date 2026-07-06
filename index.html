@@ -1006,7 +1006,9 @@ cv.addEventListener('pointerdown', (e) => {
     } catch(err){}
   }
   if (state !== 'play'){ seasonShift = 0; reset(); state = 'play'; return; }
-  if (!touch.active){
+  if (!touch.active || e.pointerId === touch.id){
+    // fresh joystick — or our own pointer id coming down again, which can only
+    // mean we missed its lift (iOS reuses ids): restart instead of staying pinned
     const p = canvasPos(e);
     touch.active = true; touch.id = e.pointerId;
     touch.ox = p.x; touch.oy = p.y; touch.dx = 0; touch.dy = 0;
@@ -1023,13 +1025,21 @@ cv.addEventListener('pointermove', (e) => {
   touch.dx = p.x - touch.ox; touch.dy = p.y - touch.oy;
   if (Math.hypot(touch.dx, touch.dy) > 9) touch.moved = true;
 });
+function clearTouch(){
+  touch.active = false; touch.id = null; touch.dx = 0; touch.dy = 0; touch.moved = false;
+}
 function endTouch(e){
   if (!touch.active || e.pointerId !== touch.id) return;
   if (!touch.moved && performance.now() - touch.t0 < 300) action();   // it was a tap
-  touch.active = false; touch.id = null; touch.dx = 0; touch.dy = 0;
+  clearTouch();
 }
-cv.addEventListener('pointerup', endTouch);
-cv.addEventListener('pointercancel', endTouch);
+/* lifts can land outside the canvas (screen edges, browser chrome), so listen
+   wide, and clear on anything that could swallow the up event */
+window.addEventListener('pointerup', endTouch, true);
+window.addEventListener('pointercancel', endTouch, true);
+cv.addEventListener('lostpointercapture', endTouch);
+window.addEventListener('blur', clearTouch);
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearTouch(); });
 
 /* ---------- context action ---------- */
 function findAction(){
