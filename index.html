@@ -810,9 +810,9 @@ let day, dayT, score, mowCount, sprayN, fertN, sprayProg, fertProg;
 let bagN, bagProg, dogs = [], dogTimer;
 let streak = 0, streakT = 0, partyGot = 0, promo = 0;
 function multOf(s){ return Math.min(5, 1 + (s >> 3)); }   // x2 at 8 cuts, cap x5
-const PROMO_AT = [6000, 14000, 30000, 40000, 60000];
+const PROMO_AT = [6000, 14000, 30000, 40000, 60000, 80000];
 const PROMO_TITLES = ['GROUNDSKEEPER II', 'TURF SPECIALIST', 'LAWN FOREMAN',
-                      'YARD CHAMPION', 'LAWNMASTER'];
+                      'YARD CHAMPION', 'GRASS BARON', 'LAWNMASTER'];
 let eventTimer, activeEvent, eventT, droughtTick, lastRank;
 let inspector = null, flashT = 0;
 
@@ -908,7 +908,7 @@ function reset(){
   say('DAY 1', curSeason.winter ? 'CLEAR SNOW FOR SUPPLIES' : 'MOW GRASS FOR SUPPLIES');
 }
 
-function say(big, small){ announce.push({big, small, t: 3}); }
+function say(big, small, t){ announce.push({big, small, t: t || 3}); }
 function float(x, y, str, col){ floats.push({x, y, str, col: col||C.cream, t: 1.4}); }
 function puff(x, y, n, col, spd){
   for (let i=0;i<n;i++){
@@ -1617,9 +1617,9 @@ function update(dt){
     const f = floats[i]; f.t -= dt; f.y -= 14*dt;
     if (f.t <= 0) floats.splice(i,1);
   }
-  for (let i=announce.length-1;i>=0;i--){
-    announce[i].t -= dt;
-    if (announce[i].t <= 0) announce.splice(i,1);
+  if (announce.length){                        // banners show one at a time, in order
+    announce[0].t -= dt;
+    if (announce[0].t <= 0) announce.shift();
   }
   if (shake > 0) shake -= dt;
   flashT = Math.max(0, flashT - dt);
@@ -1629,7 +1629,8 @@ function update(dt){
     sprayN = Math.min(MAXR, sprayN+1); fertN = Math.min(MAXR, fertN+1);
     bagN = Math.min(MAXR, bagN+1);
     announce.length = 0;
-    say('PROMOTED: ' + PROMO_TITLES[promo-1], 'MOWER SPEED UP - SUPPLIES DELIVERED');
+    say('PROMOTED: ' + PROMO_TITLES[promo-1], 'MOWER SPEED UP - SUPPLIES DELIVERED', 4);
+    float(player.x, player.y-24, PROMO_TITLES[promo-1] + '!', C.accent);
     sndPromo();
   }
 
@@ -2229,7 +2230,8 @@ function drawPlay(){
   }
 
   const ay = (H*0.36)|0;
-  for (const an of announce){
+  if (announce.length){                            // only the head of the queue
+    const an = announce[0];
     const a = Math.min(1, an.t/0.5);
     const bsc = textW(an.big, 3) > W-12 ? 2 : 3;   // long banners shrink on narrow yards
     ctx.globalAlpha = a;
