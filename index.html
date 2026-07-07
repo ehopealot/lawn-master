@@ -947,7 +947,7 @@ window.addEventListener('keydown', (e) => {
       track('play-start');
     }
   }
-  else if (k === 'p' && state === 'play'){ paused = !paused; }
+  else if (k === 'p'){ togglePause(); }
   else if (k === 'm'){ muted = !muted; if (humGain) humGain.gain.value = 0; }
 });
 window.addEventListener('keyup', (e) => {
@@ -1043,6 +1043,9 @@ cv.addEventListener('touchstart', (e) => {
     track('play-start');
     return;
   }
+  const pt0 = canvasPos(e.changedTouches[0]);
+  if (pt0.y < HUD_H){ togglePause(); return; }   // the HUD strip is the pause button
+  if (paused){ togglePause(); return; }          // tap anywhere to resume
   syncTouch(e);                                  // heal any stale stick first
   if (!touch.active){
     const t1 = e.changedTouches[0];
@@ -1074,7 +1077,12 @@ function touchEnd(e){
 window.addEventListener('touchend', touchEnd, { capture: true });
 window.addEventListener('touchcancel', touchEnd, { capture: true });
 window.addEventListener('blur', clearTouch);
-document.addEventListener('visibilitychange', () => { if (document.hidden) clearTouch(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){
+    clearTouch();
+    if (state === 'play' && !paused) togglePause();   // background = pause
+  }
+});
 
 /* ---------- context action ---------- */
 function findAction(){
@@ -1093,6 +1101,11 @@ function findAction(){
   if (pooHit)  return {type:'poo',  ...pooHit};
   if (fixHit)  return {type:'fix',  ...fixHit};
   return null;
+}
+function togglePause(){
+  if (state !== 'play') return;
+  paused = !paused;
+  if (paused && humGain) humGain.gain.value = 0;
 }
 function action(){
   if (state !== 'play' || paused) return;
@@ -2186,6 +2199,13 @@ function drawHUD(){
     drawText(sstr, W-8-textW(sstr,2), 14, 2, C.cream);
   }
 
+  if (TOUCHCAP){                                // tap the HUD bar to pause
+    const px2 = NARROW ? 168 : 262;
+    ctx.fillStyle = paused ? C.accent : C.label;
+    ctx.fillRect(px2, 10, 3, 12);
+    ctx.fillRect(px2+5, 10, 3, 12);
+  }
+
   /* context hint */
   if (state === 'play'){
     const a = findAction();
@@ -2319,7 +2339,7 @@ function drawPlay(){
   if (paused){
     ctx.fillStyle = 'rgba(16,21,13,0.7)'; ctx.fillRect(0, 0, W, H);
     drawTextC('PAUSED', W/2, (H*0.44)|0, 3, C.cream);
-    drawTextC('P TO RESUME', W/2, (H*0.44)|0 + 26, 1, C.accent);
+    drawTextC(TOUCHCAP ? 'TAP TO RESUME' : 'P TO RESUME', W/2, (H*0.44)|0 + 26, 1, C.accent);
   }
   if (muted) drawText('MUTE', W-8-textW('MUTE',1), H-9, 1, '#5a6a52');
 }
@@ -2428,6 +2448,8 @@ function drawTitle(){
   drawTextC('ONE HOA LETTER AND YOU ARE DONE FOR', W/2, 192, 1, '#dcd4b4');
   if (Math.floor(t*2)%2===0)
     drawTextC(TOUCHCAP ? 'TAP TO CLOCK IN' : 'PRESS ENTER TO CLOCK IN', W/2, 205, 1, C.accent);
+  if (TOUCHCAP && !STANDALONE)
+    drawTextC('FULL SCREEN: ADD TO HOME SCREEN', W/2, 224, 1, '#8a9a78');
   drawTextC('A HOPE LAWN CO. PRODUCTION', W/2, 222, 1, 'rgba(30,58,18,0.85)');
   if (scoresCache.length)
     drawTextC('BEST: ' + scoresCache[0].s + ' - DAY ' + scoresCache[0].d, W/2, 236, 1, 'rgba(30,58,18,0.85)');
