@@ -23,7 +23,7 @@ for (let f=0; f<13000 && state === 'play'; f++){
   else if (Math.abs(dy) > 4) keys[dy>0?'down':'up'] = true;
   else { wi = (wi+1)%wps.length; }
   if (f%20 === 0){
-    const a = findAction();
+    const a = resolveAction();
     const sqNear = squirrels.some(s => s.state !== 'flee' && Math.hypot(s.x-player.x, s.y-player.y) < 90);
     if (a || sqNear) action();
   }

@@ -214,6 +214,27 @@ score = 18500;
 step(16);
 if (promo !== 2) throw new Error('promotions did not catch up: ' + promo);
 
+// fall-through action: out of spray beside a weed still fixes the dry patch
+for (const t of tiles){ t.weed = null; t.poo = null; if (t.ground === 1 || t.ground === 2) t.ground = 0; }
+tiles[1].weed = { age: 3 }; tiles[2].ground = 1;
+player.x = TILE + 8; player.y = HUD_H + 8;
+sprayN = 0; fertN = 1; bagN = 0; buzzT = 0;
+action();
+if (tiles[2].ground !== 0) throw new Error('fall-through fix failed');
+if (!tiles[1].weed) throw new Error('weed sprayed without spray');
+tiles[1].weed = null;
+
+// critters route around the house instead of phasing through it
+dogs = [{ x: HX + 40, y: HY - 20, state: 'walk', t: 0, poos: 0, stops: 1,
+          tx: HX + 40, ty: HY + HPH + 30, anim: 0, big: false, scares: 0, scareCD: 0 }];
+player.x = 40; player.y = HUD_H + 40;           // far away: no accidental scares
+for (let i=0;i<400;i++){
+  step(16);
+  if (dogs.length && inHouse(dogs[0].x, dogs[0].y, 2))
+    throw new Error('dog walked through the house');
+}
+dogs = [];
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);

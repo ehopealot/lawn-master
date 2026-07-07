@@ -1085,21 +1085,32 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ---------- context action ---------- */
-function findAction(){
-  if (Math.hypot(player.x-COOLER.x, player.y-COOLER.y) < 26) return {type:'beer'};
+function findActions(){
+  const found = { beer: false, weed: null, poo: null, fix: null };
+  if (Math.hypot(player.x-COOLER.x, player.y-COOLER.y) < 26) found.beer = true;
   const ptx = Math.floor(player.x/TILE), pty = Math.floor((player.y-HUD_H)/TILE);
-  let weedHit = null, pooHit = null, fixHit = null, best1 = 9, best2 = 9, best3 = 9;
+  let b1 = 9, b2 = 9, b3 = 9;
   for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){
     const t = tileAt(ptx+dx, pty+dy);
     if (!t) continue;
     const d = Math.abs(dx)+Math.abs(dy);
-    if (t.weed && d < best1){ best1 = d; weedHit = {t, tx:ptx+dx, ty:pty+dy}; }
-    if (t.poo && d < best3){ best3 = d; pooHit = {t, tx:ptx+dx, ty:pty+dy}; }
-    if ((t.ground === 1 || t.ground === 2) && d < best2){ best2 = d; fixHit = {t, tx:ptx+dx, ty:pty+dy}; }
+    if (t.weed && d < b1){ b1 = d; found.weed = {t, tx:ptx+dx, ty:pty+dy}; }
+    if (t.poo && d < b3){ b3 = d; found.poo = {t, tx:ptx+dx, ty:pty+dy}; }
+    if ((t.ground === 1 || t.ground === 2) && d < b2){ b2 = d; found.fix = {t, tx:ptx+dx, ty:pty+dy}; }
   }
-  if (weedHit) return {type:'weed', ...weedHit};
-  if (pooHit)  return {type:'poo',  ...pooHit};
-  if (fixHit)  return {type:'fix',  ...fixHit};
+  return found;
+}
+/* the tap does the first thing it CAN do: beer, spray, fertilize, bag —
+   falling through anything we lack supplies for instead of blocking on it */
+function resolveAction(){
+  const f = findActions();
+  if (f.beer) return { type: 'beer' };
+  if (f.weed && sprayN > 0) return { type: 'weed', hit: f.weed };
+  if (f.fix && fertN > 0) return { type: 'fix', hit: f.fix };
+  if (f.poo && bagN > 0) return { type: 'poo', hit: f.poo };
+  if (f.weed) return { type: 'blocked', msg: 'OUT OF SPRAY!' };
+  if (f.fix) return { type: 'blocked', msg: 'NEED FERTILIZER!' };
+  if (f.poo) return { type: 'blocked', msg: 'OUT OF BAGS!' };
   return null;
 }
 function togglePause(){
@@ -1109,7 +1120,7 @@ function togglePause(){
 }
 function action(){
   if (state !== 'play' || paused) return;
-  const a = findAction();
+  const a = resolveAction();
   if (a && a.type === 'beer'){
     if (beerCD <= 0){
       beerCD = 15; buzzT = BUZZ_LEN; score += 5;
@@ -1122,39 +1133,32 @@ function action(){
     return;
   }
   if (a && a.type === 'weed'){
-    if (sprayN > 0){
-      const young = a.t.weed.age < 8;          // killed before it could spread
-      sprayN--; a.t.weed = null; score += young ? 25 : 10; sndSpray();
-      const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
-      puff(cx, cy, 8, '#d7f0b9', 26); puff(cx, cy-2, 5, '#f0f8e0', 18);
-      float(cx, cy-6, young ? 'NIPPED IT! +25' : '+10', C.accent);
-    } else {
-      float(player.x, player.y-14, 'OUT OF SPRAY!', C.bad); sndBad();
-      tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
-    }
-    return;
-  }
-  if (a && a.type === 'poo'){
-    if (bagN > 0){
-      bagN--; a.t.poo = null; score += 15; sndScoop();
-      const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
-      puff(cx, cy, 6, '#b98d5a', 22); float(cx, cy-6, 'BAGGED IT +15', C.accent);
-    } else {
-      float(player.x, player.y-14, 'OUT OF BAGS!', C.bad); sndBad();
-      tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
-    }
+    const ht = a.hit;
+    const young = ht.t.weed.age < 8;           // killed before it could spread
+    sprayN--; ht.t.weed = null; score += young ? 25 : 10; sndSpray();
+    const cx = ht.tx*TILE+8, cy = HUD_H + ht.ty*TILE+8;
+    puff(cx, cy, 8, '#d7f0b9', 26); puff(cx, cy-2, 5, '#f0f8e0', 18);
+    float(cx, cy-6, young ? 'NIPPED IT! +25' : '+10', C.accent);
     return;
   }
   if (a && a.type === 'fix'){
-    if (fertN > 0){
-      fertN--; a.t.ground = 0; a.t.g = 0; a.t.t = 14 + Math.random()*20;
-      score += 15; sndFix();
-      const cx = a.tx*TILE+8, cy = HUD_H + a.ty*TILE+8;
-      puff(cx, cy, 10, C.dirt, 30); float(cx, cy-6, '+15', C.accent);
-    } else {
-      float(player.x, player.y-14, 'NEED FERTILIZER!', C.bad); sndBad();
-      tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
-    }
+    const ht = a.hit;
+    fertN--; ht.t.ground = 0; ht.t.g = 0; ht.t.t = 14 + Math.random()*20;
+    score += 15; sndFix();
+    const cx = ht.tx*TILE+8, cy = HUD_H + ht.ty*TILE+8;
+    puff(cx, cy, 10, C.dirt, 30); float(cx, cy-6, '+15', C.accent);
+    return;
+  }
+  if (a && a.type === 'poo'){
+    const ht = a.hit;
+    bagN--; ht.t.poo = null; score += 15; sndScoop();
+    const cx = ht.tx*TILE+8, cy = HUD_H + ht.ty*TILE+8;
+    puff(cx, cy, 6, '#b98d5a', 22); float(cx, cy-6, 'BAGGED IT +15', C.accent);
+    return;
+  }
+  if (a && a.type === 'blocked'){
+    float(player.x, player.y-14, a.msg, C.bad); sndBad();
+    tip('earn', 'OUT OF SUPPLIES!|MOW GRASS TO EARN MORE');
     return;
   }
   // honk
@@ -1461,7 +1465,7 @@ function update(dt){
     if (s.state === 'walk'){
       const dx = s.tx-s.x, dy = s.ty-s.y, d = Math.hypot(dx, dy);
       if (d < 3){ s.state = 'dig'; s.digT = 2.4; }
-      else { s.x += dx/d*42*dt; s.y += dy/d*42*dt; }
+      else slideMove(s, s.x + dx/d*42*dt, s.y + dy/d*42*dt, 6, 42, dt);
     } else if (s.state === 'dig'){
       s.digT -= dt;
       if (Math.random() < dt*8) puff(s.x, s.y+4, 1, C.dirt, 26);
@@ -1481,7 +1485,7 @@ function update(dt){
     } else { // flee
       const dx = s.tx-s.x, dy = s.ty-s.y, d = Math.hypot(dx, dy);
       if (d < 6){ squirrels.splice(i,1); continue; }
-      s.x += dx/d*105*dt; s.y += dy/d*105*dt;
+      slideMove(s, s.x + dx/d*105*dt, s.y + dy/d*105*dt, 6, 105, dt);
     }
   }
 
@@ -1565,7 +1569,7 @@ function update(dt){
     if (d.state === 'walk' || d.state === 'relocate' || d.state === 'leave' || d.state === 'flee'){
       const ddx = d.tx-d.x, ddy = d.ty-d.y, dd = Math.hypot(ddx, ddy) || 1;
       const dsp = (d.state === 'flee' || d.state === 'relocate') ? 120 : 55;
-      d.x += ddx/dd*dsp*dt; d.y += ddy/dd*dsp*dt;
+      slideMove(d, d.x + ddx/dd*dsp*dt, d.y + ddy/dd*dsp*dt, 8, dsp, dt);
       if (dd < 4){
         if (d.state === 'walk' || d.state === 'relocate'){ d.state = 'sniff'; d.t = 1.1; }
         else { dogs.splice(i,1); continue; }
@@ -1707,6 +1711,18 @@ function update(dt){
       }
       streak = 0;
     }
+  }
+}
+function slideMove(o, nx, ny, pad, sp, dt2){
+  // axis-separated movement: blocked critters slide along the house walls
+  const ox = o.x, oy = o.y;
+  if (!inHouse(nx, o.y, pad)) o.x = nx;
+  if (!inHouse(o.x, ny, pad)) o.y = ny;
+  if (Math.abs(o.x-ox) + Math.abs(o.y-oy) < 0.01){   // pinned dead-on: slip around
+    if (inHouse(o.x, ny, pad))
+      o.x += (o.x < HX + HPW/2 ? -1 : 1) * sp * dt2; // blocked vertically: go sideways
+    else
+      o.y += (o.y < HY + HPH/2 ? -1 : 1) * sp * dt2; // blocked sideways: go vertical
   }
 }
 function pickDogSpot(d){
@@ -2208,14 +2224,15 @@ function drawHUD(){
 
   /* context hint */
   if (state === 'play'){
-    const a = findAction();
+    const a = resolveAction();
     let hint = 'SPACE: HONK';
     if (a && a.type === 'beer') hint = beerCD <= 0
       ? (curSeason.winter ? 'SPACE: GRAB A COCOA' : 'SPACE: GRAB A COLD ONE')
       : 'COOLER: RESTOCKING';
     else if (a && a.type === 'weed') hint = 'SPACE: SPRAY WEED';
     else if (a && a.type === 'poo') hint = 'SPACE: BAG THE POOP';
-    else if (a && a.type === 'fix') hint = a.t.ground === 2 ? 'SPACE: FILL HOLE' : 'SPACE: RESEED';
+    else if (a && a.type === 'fix') hint = a.hit.t.ground === 2 ? 'SPACE: FILL HOLE' : 'SPACE: RESEED';
+    else if (a && a.type === 'blocked') hint = a.msg + ' MOW FOR SUPPLIES';
     if (TOUCHCAP) hint = hint.replace('SPACE:', 'TAP:');
     ctx.fillStyle = 'rgba(16,21,13,0.75)';
     const hw = textW(hint,1)+8;
