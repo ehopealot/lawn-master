@@ -31,3 +31,10 @@ run the balance suite AND an extended sim (raise the frame cap in
 tests/balance.js to ~80000) to confirm death remains inevitable.
 
 Secret: Cmd/Ctrl+Enter on the title starts in winter (`seasonShift = 3`).
+
+## Analytics
+GoatCounter (privacy-friendly, no cookies). Script tag in index.html's head
+points at lawnmaster.goatcounter.com — public site only; the game's `track()`
+helper no-ops wherever window.goatcounter is absent (artifact, tests,
+offline). Events: `play-start`, `gameover/day-N/score-Nk`. Uniques on the
+pageview = distinct players.

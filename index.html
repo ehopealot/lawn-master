@@ -24,6 +24,7 @@
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <title>Lawnmaster</title>
+<script data-goatcounter="https://lawnmaster.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <title>Lawnmaster</title>
@@ -817,6 +818,16 @@ let eventTimer, activeEvent, eventT, droughtTick, lastRank;
 let inspector = null, flashT = 0;
 let overAt = 0, lastOverTap = 0;   // game-over restart guard
 
+/* ---------- analytics: GoatCounter on the public site only ----------
+   the script tag lives in the deployed page's head; everywhere else
+   (artifact, tests, offline) window.goatcounter is absent and this no-ops */
+function track(path){
+  try {
+    if (window.goatcounter && window.goatcounter.count)
+      window.goatcounter.count({ path: path, event: true });
+  } catch(e){}
+}
+
 /* ---------- high scores (localStorage) ---------- */
 let scoresCache = [];
 function loadScores(){
@@ -933,6 +944,7 @@ window.addEventListener('keydown', (e) => {
       if (state === 'over' && tSinceStart - overAt < 2) return;   // let the loss sink in
       seasonShift = (e.metaKey || e.ctrlKey) ? 3 : 0;   // shh: winter shift
       reset(); state = 'play';
+      track('play-start');
     }
   }
   else if (k === 'p' && state === 'play'){ paused = !paused; }
@@ -1028,6 +1040,7 @@ cv.addEventListener('touchstart', (e) => {
       if (!dbl) return;                          // first tap arms, second restarts
     }
     seasonShift = 0; reset(); state = 'play';
+    track('play-start');
     return;
   }
   syncTouch(e);                                  // heal any stale stick first
@@ -1616,6 +1629,7 @@ function update(dt){
     if (humGain) humGain.gain.value = 0;
     sndSting();
     lastRank = saveScore(score, day);
+    track('gameover/day-' + day + '/score-' + Math.round(score/1000) + 'k');
   }
 
   /* particles & floats & announcements */
