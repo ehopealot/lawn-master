@@ -1534,8 +1534,14 @@ function update(dt){
   if (dogs.length === 0){
     dogTimer -= dt;
     if (dogTimer <= 0){
-      dogTimer = 13 + Math.random()*9;
-      dogs.push(spawnDog(day >= 3 && Math.random() < 0.25, false));
+      let pooN = 0;
+      for (const pt of tiles) if (pt.poo) pooN++;
+      const lure = Math.max(0.55, 1 - 0.08*pooN);   // a marked yard draws dogs back sooner
+      dogTimer = (13 + Math.random()*9) * lure;
+      const nd = spawnDog(day >= 3 && Math.random() < 0.25, false);
+      dogs.push(nd);
+      if (pooN >= 3)
+        float(Math.max(24, Math.min(W-24, nd.x)), nd.y-22, 'THE SMELL BRINGS THEM BACK', C.warn);
     }
   }
   for (let i=dogs.length-1;i>=0;i--){
