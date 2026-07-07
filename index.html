@@ -1363,11 +1363,28 @@ function update(dt){
     }
     if (t.weed){
       t.weed.age += dt;
-      if (t.weed.age > 12 && Math.random() < dt/10){
+      // mature weeds spread; once they go to seed (white puff) they spread 2.5x
+      const vigor = t.weed.age > 25 ? 2.5 : t.weed.age > 12 ? 1 : 0;
+      if (vigor && Math.random() < dt*vigor/10){
         const x = i%GW, y = (i/GW)|0;
-        const nx = x + (Math.random()<0.5?-1:1), ny = y + (Math.random()<0.5?-1:1);
-        const n = tileAt(nx, ny);
+        const dw = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]][(Math.random()*8)|0];
+        const n = tileAt(x+dw[0], y+dw[1]);
         if (n && !n.weed && n.ground === 0) n.weed = {age:0};
+        if (t.weed.age > 25) tip('puff', 'SEEDING WEEDS SPREAD FASTER|KILL THE WHITE PUFFS FIRST');
+      }
+    }
+    if (t.ground === 2){                        // untended holes erode the lawn
+      t.t -= dt;
+      if (t.t <= 0){
+        t.t = 14 + Math.random()*10;
+        const x = i%GW, y = (i/GW)|0;
+        const de = [[1,0],[-1,0],[0,1],[0,-1]][(Math.random()*4)|0];
+        const n = tileAt(x+de[0], y+de[1]);
+        if (n && n.ground === 0){
+          n.ground = 1; n.g = 0; n.weed = null; n.poo = null;
+          puff((x+de[0])*TILE+8, HUD_H+((y+de[1]))*TILE+8, 4, C.dirtSp, 20);
+          tip('erode', 'UNTENDED HOLES ERODE THE LAWN|FILL THEM BEFORE IT SPREADS');
+        }
       }
     }
   }
@@ -1440,6 +1457,7 @@ function update(dt){
         const t = tileAt(tx, ty);
         if (t && t.ground !== 3){
           t.ground = 2; t.g = 0; t.weed = null; t.poo = null; t.snow = 0;
+          t.t = 14 + Math.random()*10;   // erosion countdown
           tip('hole', 'A HOLE! PARK BESIDE IT|' + ACT + ' USES FERTILIZER');
         }
         sndBad(); shake = 0.25;
@@ -1673,6 +1691,16 @@ function update(dt){
   }
 }
 function pickDogSpot(d){
+  if (Math.random() < 0.4){                    // dogs mark where dogs have marked
+    const marked = [];
+    for (let mi=0;mi<tiles.length;mi++) if (tiles[mi].poo) marked.push(mi);
+    if (marked.length){
+      const mi = marked[(Math.random()*marked.length)|0];
+      d.tx = Math.max(24, Math.min(W-24, (mi%GW)*TILE+8 + (Math.random()*48-24)));
+      d.ty = Math.max(HUD_H+20, Math.min(H-20, HUD_H+((mi/GW)|0)*TILE+8 + (Math.random()*48-24)));
+      if (!inHouse(d.tx, d.ty, 14)) return;
+    }
+  }
   for (let i=0;i<10;i++){
     d.tx = 30 + Math.random()*(W-60);
     d.ty = HUD_H + 24 + Math.random()*(GH*TILE-48);
@@ -1936,7 +1964,7 @@ function drawWeed(px, py, age){
   if (age < 5){
     ctx.fillRect(cx, base-2, 1, 3);
     ctx.fillStyle = C.warn; ctx.fillRect(cx, base-3, 1, 1);
-  } else if (age < 14){
+  } else if (age < 25){
     ctx.fillRect(cx, base-4, 1, 5);
     ctx.fillRect(cx+sw, base-7, 1, 3);
     ctx.fillStyle = '#e0a72e';
