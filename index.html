@@ -896,17 +896,38 @@ function shareBtnRect(){
   const bw = textW(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', 1) + 14;
   return { x: ((W-bw)/2)|0, y: 274, w: bw, h: 13 };
 }
+function legacyCopy(txt){
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch(e){ return false; }
+}
+function copyText(txt){
+  const done = () => { shareAt = tSinceStart; };   // COPIED! only on real success
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, () => { if (legacyCopy(txt)) done(); });
+      return;
+    }
+  } catch(e){}
+  if (legacyCopy(txt)) done();
+}
 function doShare(){
   const txt = shareText();
   track('share-score');
-  try {
-    if (typeof navigator !== 'undefined' && navigator.share){
-      navigator.share({ text: txt }).catch(() => {});
-    } else if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).catch(() => {});
-      shareAt = tSinceStart;
-    }
-  } catch(e){}
+  if (TOUCHCAP && typeof navigator !== 'undefined' && navigator.share){
+    try {                                          // share sheets are a touch idiom;
+      navigator.share({ text: txt }).catch(() => copyText(txt));
+      return;                                      // desktop macs get the clipboard
+    } catch(e){}
+  }
+  copyText(txt);
 }
 function saveScore(s, d){
   const entry = { s, d };
