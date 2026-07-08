@@ -2533,6 +2533,10 @@ function drawTitle(){
   if (TOUCHCAP && !STANDALONE)
     drawTextC('FULL SCREEN: ADD TO HOME SCREEN', W/2, 224, 1, '#8a9a78');
   drawTextC('A HOPE LAWN CO. PRODUCTION', W/2, 222, 1, 'rgba(30,58,18,0.85)');
+  const uw = textW('LAWNMASTER.GG', 1) + 8;     // the address on every screenshot
+  ctx.fillStyle = 'rgba(12,17,10,0.8)';
+  ctx.fillRect(W-uw-3, H-14, uw, 11);
+  drawText('LAWNMASTER.GG', W-uw+1, H-11, 1, C.accent);
   if (scoresCache.length)
     drawTextC('BEST: ' + scoresCache[0].s + ' - DAY ' + scoresCache[0].d, W/2, 236, 1, 'rgba(30,58,18,0.85)');
 }
