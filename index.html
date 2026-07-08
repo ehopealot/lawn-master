@@ -893,8 +893,8 @@ function shareText(){
     '\n' + rank + ' \u2014 ' + score.toLocaleString() + ' pts\nhttps://lawnmaster.gg';
 }
 function shareBtnRect(){
-  const bw = textW(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', 1) + 14;
-  return { x: ((W-bw)/2)|0, y: 274, w: bw, h: 13 };
+  const bw = textW(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', 2) + 24;
+  return { x: ((W-bw)/2)|0, y: 270, w: bw, h: 24 };
 }
 function legacyCopy(txt){
   try {
@@ -1115,7 +1115,7 @@ cv.addEventListener('touchstart', (e) => {
     if (state === 'over'){
       const sp2 = canvasPos(e.changedTouches[0]);
       const br = shareBtnRect();
-      if (sp2.x >= br.x-4 && sp2.x <= br.x+br.w+4 && sp2.y >= br.y-6 && sp2.y <= br.y+br.h+8){
+      if (sp2.x >= br.x-12 && sp2.x <= br.x+br.w+12 && sp2.y >= br.y-12 && sp2.y <= br.y+br.h+12){
         doShare();
         return;                                  // sharing never arms a restart
       }
@@ -2592,8 +2592,8 @@ function drawOver(){
   ctx.fillRect(sbr.x, sbr.y, sbr.w, sbr.h);
   ctx.strokeStyle = C.accent;
   ctx.strokeRect(sbr.x+0.5, sbr.y+0.5, sbr.w-1, sbr.h-1);
-  drawTextC(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', W/2, sbr.y+4, 1, C.accent);
-  if (tSinceStart - shareAt < 2) drawTextC('COPIED!', W/2, sbr.y-9, 1, C.warn);
+  drawTextC(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', W/2, sbr.y+7, 2, C.accent);
+  if (tSinceStart - shareAt < 2) drawTextC('COPIED!', W/2, sbr.y-10, 1, C.warn);
 }
 
 /* ---------- loop ---------- */
