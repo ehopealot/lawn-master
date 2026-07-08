@@ -873,6 +873,19 @@ let tipsSeen = (function(){
   catch(e){ return {}; }
 })();
 let tipQueue = [], tipCur = null, tipT = 0;
+let replayTips = false;            // title checkbox: wipe tip history on next start
+function wipeTips(){
+  tipsSeen = {};
+  try { localStorage.removeItem('lawnmaster.tips'); } catch(e){}
+  replayTips = false;
+}
+function replayBtnRect(){
+  let seen = false;
+  for (const k in tipsSeen) if (tipsSeen[k]){ seen = true; break; }
+  if (!seen) return null;          // nothing to replay: no checkbox
+  const label = TOUCHCAP ? 'REPLAY TIPS' : 'REPLAY TIPS: T';
+  return { x: 3, y: H-16, w: 13 + textW(label, 1) + 8, h: 13, label };
+}
 function tip(id, text){
   if (tipsSeen[id]) return;
   tipsSeen[id] = 1;
@@ -1021,6 +1034,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'enter'){
     if (state !== 'play'){
       if (state === 'over' && tSinceStart - overAt < 2) return;   // let the loss sink in
+      if (state === 'title' && replayTips) wipeTips();
       seasonShift = (e.metaKey || e.ctrlKey) ? 3 : 0;   // shh: winter shift
       reset(); state = 'play';
       track('play-start');
@@ -1028,6 +1042,7 @@ window.addEventListener('keydown', (e) => {
   }
   else if (k === 'p'){ togglePause(); }
   else if (k === 's' && state === 'over'){ doShare(); }
+  else if (k === 't' && state === 'title'){ if (replayBtnRect()) replayTips = !replayTips; }
   else if (k === 'm'){ muted = !muted; if (humGain) humGain.gain.value = 0; }
 });
 window.addEventListener('keyup', (e) => {
@@ -1124,6 +1139,17 @@ cv.addEventListener('touchstart', (e) => {
       const dbl = nw - lastOverTap < 450;
       lastOverTap = nw;
       if (!dbl) return;                          // first tap arms, second restarts
+    }
+    if (state === 'title'){
+      const rb = replayBtnRect();
+      if (rb){
+        const tp2 = canvasPos(e.changedTouches[0]);
+        if (tp2.x >= rb.x-8 && tp2.x <= rb.x+rb.w+8 && tp2.y >= rb.y-8 && tp2.y <= rb.y+rb.h+8){
+          replayTips = !replayTips;
+          return;                                // toggling is not clocking in
+        }
+      }
+      if (replayTips) wipeTips();
     }
     seasonShift = 0; reset(); state = 'play';
     track('play-start');
@@ -2552,6 +2578,15 @@ function drawTitle(){
   if (Math.floor(t*2)%2===0)
     drawTextC(TOUCHCAP ? 'TAP TO CLOCK IN' : 'PRESS ENTER TO CLOCK IN', W/2, 205, 1, C.accent);
   drawTextC('A HOPE LAWN CO. PRODUCTION', W/2, 222, 1, 'rgba(30,58,18,0.85)');
+  const rb = replayBtnRect();                   // returning players can rewatch tips
+  if (rb){
+    ctx.fillStyle = 'rgba(12,17,10,0.8)';
+    ctx.fillRect(rb.x, rb.y, rb.w, rb.h);
+    ctx.strokeStyle = replayTips ? C.accent : '#5a6a52';
+    ctx.strokeRect(rb.x+3.5, rb.y+3.5, 7, 7);
+    if (replayTips){ ctx.fillStyle = C.accent; ctx.fillRect(rb.x+5, rb.y+5, 4, 4); }
+    drawText(rb.label, rb.x+14, rb.y+4, 1, replayTips ? C.accent : '#a3b18c');
+  }
   const uw = textW('LAWNMASTER.GG', 1) + 8;     // the address on every screenshot
   ctx.fillStyle = 'rgba(12,17,10,0.8)';
   ctx.fillRect(W-uw-3, H-14, uw, 11);

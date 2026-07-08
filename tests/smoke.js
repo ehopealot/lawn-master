@@ -245,6 +245,14 @@ if ((st2.match(/\u2600|\ud83c\udf3e|\ud83c\udf42|\u2744/g) || []).length < 4)
   throw new Error('share text missing season strip');
 doShare();                                     // must not throw without navigator.share
 
+// replay-tips checkbox: appears only with history, wipe restores freshness
+if (!replayBtnRect()) throw new Error('replay checkbox missing despite tip history');
+replayTips = true; wipeTips();
+if (replayTips) throw new Error('wipeTips left the checkbox armed');
+if (Object.keys(tipsSeen).length !== 0) throw new Error('tip history not wiped');
+if (replayBtnRect()) throw new Error('checkbox should hide with no history');
+tip('move', 'X'); tipQueue.length = 0; tipCur = null;   // restore some history
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);
