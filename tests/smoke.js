@@ -235,6 +235,16 @@ for (let i=0;i<400;i++){
 }
 dogs = [];
 
+// share text: seasons strip, rank, score, link
+day = 14; score = 52300; promo = 5; seasonShift = 0;
+const st2 = shareText();
+if (st2.indexOf('day 14') < 0 || st2.indexOf('GRASS BARON') < 0 ||
+    st2.indexOf('52,300') < 0 || st2.indexOf('lawnmaster.gg') < 0)
+  throw new Error('share text malformed: ' + st2);
+if ((st2.match(/\u2600|\ud83c\udf3e|\ud83c\udf42|\u2744/g) || []).length < 4)
+  throw new Error('share text missing season strip');
+doShare();                                     // must not throw without navigator.share
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);

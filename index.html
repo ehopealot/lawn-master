@@ -846,6 +846,7 @@ const PROMO_TITLES = ['GROUNDSKEEPER II', 'TURF SPECIALIST', 'LAWN FOREMAN',
 let eventTimer, activeEvent, eventT, droughtTick, lastRank;
 let inspector = null, flashT = 0;
 let overAt = 0, lastOverTap = 0;   // game-over restart guard
+let shareAt = -9;                  // when the score was last copied
 
 /* ---------- analytics: GoatCounter on the public site only ----------
    the script tag lives in the deployed page's head; everywhere else
@@ -879,6 +880,34 @@ function tip(id, text){
   tipQueue.push(text);
 }
 
+function shareText(){
+  const em = { 'SUMMER':'\u2600\ufe0f', 'LATE SUMMER':'\ud83c\udf3e',
+               'AUTUMN':'\ud83c\udf42', 'WINTER':'\u2744\ufe0f' };
+  let strip = '', last = null;
+  for (let d2=1; d2<=day; d2++){
+    const nm = seasonFor(d2).name;
+    if (nm !== last){ strip += em[nm]; last = nm; }
+  }
+  const rank = promo ? PROMO_TITLES[promo-1] : 'GROUNDSKEEPER';
+  return '\ud83d\ude9c LAWNMASTER\n' + strip + ' survived to day ' + day +
+    '\n' + rank + ' \u2014 ' + score.toLocaleString() + ' pts\nhttps://lawnmaster.gg';
+}
+function shareBtnRect(){
+  const bw = textW(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', 1) + 14;
+  return { x: ((W-bw)/2)|0, y: 274, w: bw, h: 13 };
+}
+function doShare(){
+  const txt = shareText();
+  track('share-score');
+  try {
+    if (typeof navigator !== 'undefined' && navigator.share){
+      navigator.share({ text: txt }).catch(() => {});
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).catch(() => {});
+      shareAt = tSinceStart;
+    }
+  } catch(e){}
+}
 function saveScore(s, d){
   const entry = { s, d };
   const arr = loadScores();
@@ -977,6 +1006,7 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === 'p'){ togglePause(); }
+  else if (k === 's' && state === 'over'){ doShare(); }
   else if (k === 'm'){ muted = !muted; if (humGain) humGain.gain.value = 0; }
 });
 window.addEventListener('keyup', (e) => {
@@ -1062,6 +1092,12 @@ cv.addEventListener('touchstart', (e) => {
   }
   if (state !== 'play'){
     if (state === 'over'){
+      const sp2 = canvasPos(e.changedTouches[0]);
+      const br = shareBtnRect();
+      if (sp2.x >= br.x-4 && sp2.x <= br.x+br.w+4 && sp2.y >= br.y-6 && sp2.y <= br.y+br.h+8){
+        doShare();
+        return;                                  // sharing never arms a restart
+      }
       if (tSinceStart - overAt < 2) return;      // cooldown: stray taps ignored
       const nw = performance.now();
       const dbl = nw - lastOverTap < 450;
@@ -2528,6 +2564,13 @@ function drawOver(){
   }
   if (tSinceStart - overAt >= 2 && Math.floor(tSinceStart*2)%2 === 0)
     drawTextC(TOUCHCAP ? 'TAP TWICE FOR A NEW CONTRACT' : 'PRESS ENTER FOR A NEW CONTRACT', W/2, 262, 1, C.cream);
+  const sbr = shareBtnRect();
+  ctx.fillStyle = 'rgba(12,17,10,0.9)';
+  ctx.fillRect(sbr.x, sbr.y, sbr.w, sbr.h);
+  ctx.strokeStyle = C.accent;
+  ctx.strokeRect(sbr.x+0.5, sbr.y+0.5, sbr.w-1, sbr.h-1);
+  drawTextC(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', W/2, sbr.y+4, 1, C.accent);
+  if (tSinceStart - shareAt < 2) drawTextC('COPIED!', W/2, sbr.y-9, 1, C.warn);
 }
 
 /* ---------- loop ---------- */
