@@ -906,7 +906,8 @@ function shareText(){
     '\n' + rank + ' \u2014 ' + score.toLocaleString() + ' pts\nhttps://lawnmaster.gg';
 }
 function shareBtnRect(){
-  const bw = textW(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', 2) + 24;
+  if (!TOUCHCAP) return null;                    // mobile-only: desktop share was flaky
+  const bw = textW('SHARE SCORE', 2) + 24;
   return { x: ((W-bw)/2)|0, y: 270, w: bw, h: 24 };
 }
 function legacyCopy(txt){
@@ -1041,7 +1042,6 @@ window.addEventListener('keydown', (e) => {
     }
   }
   else if (k === 'p'){ togglePause(); }
-  else if (k === 's' && state === 'over'){ doShare(); }
   else if (k === 't' && state === 'title'){ if (replayBtnRect()) replayTips = !replayTips; }
   else if (k === 'm'){ muted = !muted; if (humGain) humGain.gain.value = 0; }
 });
@@ -1130,7 +1130,7 @@ cv.addEventListener('touchstart', (e) => {
     if (state === 'over'){
       const sp2 = canvasPos(e.changedTouches[0]);
       const br = shareBtnRect();
-      if (sp2.x >= br.x-12 && sp2.x <= br.x+br.w+12 && sp2.y >= br.y-12 && sp2.y <= br.y+br.h+12){
+      if (br && sp2.x >= br.x-12 && sp2.x <= br.x+br.w+12 && sp2.y >= br.y-12 && sp2.y <= br.y+br.h+12){
         doShare();
         return;                                  // sharing never arms a restart
       }
@@ -2635,12 +2635,14 @@ function drawOver(){
   if (tSinceStart - overAt >= 2 && Math.floor(tSinceStart*2)%2 === 0)
     drawTextC(TOUCHCAP ? 'TAP TWICE FOR A NEW CONTRACT' : 'PRESS ENTER FOR A NEW CONTRACT', W/2, 262, 1, C.cream);
   const sbr = shareBtnRect();
-  ctx.fillStyle = 'rgba(12,17,10,0.9)';
-  ctx.fillRect(sbr.x, sbr.y, sbr.w, sbr.h);
-  ctx.strokeStyle = C.accent;
-  ctx.strokeRect(sbr.x+0.5, sbr.y+0.5, sbr.w-1, sbr.h-1);
-  drawTextC(TOUCHCAP ? 'SHARE SCORE' : 'SHARE SCORE: S', W/2, sbr.y+7, 2, C.accent);
-  if (tSinceStart - shareAt < 2) drawTextC('COPIED!', W/2, sbr.y-10, 1, C.warn);
+  if (sbr){
+    ctx.fillStyle = 'rgba(12,17,10,0.9)';
+    ctx.fillRect(sbr.x, sbr.y, sbr.w, sbr.h);
+    ctx.strokeStyle = C.accent;
+    ctx.strokeRect(sbr.x+0.5, sbr.y+0.5, sbr.w-1, sbr.h-1);
+    drawTextC('SHARE SCORE', W/2, sbr.y+7, 2, C.accent);
+    if (tSinceStart - shareAt < 2) drawTextC('COPIED!', W/2, sbr.y-10, 1, C.warn);
+  }
 }
 
 /* ---------- loop ---------- */
