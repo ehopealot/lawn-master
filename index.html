@@ -883,7 +883,7 @@ function replayBtnRect(){
   let seen = false;
   for (const k in tipsSeen) if (tipsSeen[k]){ seen = true; break; }
   if (!seen) return null;          // nothing to replay: no checkbox
-  const label = TOUCHCAP ? 'REPLAY TIPS' : 'REPLAY TIPS: T';
+  const label = TOUCHCAP ? 'SHOW TIPS' : 'SHOW TIPS: T';
   return { x: 3, y: H-16, w: 13 + textW(label, 1) + 8, h: 13, label };
 }
 function tip(id, text){
@@ -2282,8 +2282,9 @@ function drawHUD(){
     if (strikes >= 1) drawMap(ICON_MAIL, 104, 11, false);
     else { ctx.strokeStyle = cflash ? C.bad : '#3a5a3c'; ctx.strokeRect(104.5, 11.5, 8, 6); }
     meter(118, 13, 26, complaint, cflash ? C.cream : C.bad);
-    drawText('SCORE', W-8-textW('SCORE',1), 3, 1, C.label);
-    drawText(sstr, W-8-textW(sstr,2), 10, 2, C.cream);
+    const sR = TOUCHCAP ? W-22 : W-8;
+    drawText('SCORE', sR-textW('SCORE',1), 3, 1, C.label);
+    drawText(sstr, sR-textW(sstr,2), 10, 2, C.cream);
     /* row 2: supplies, columns split across whatever width we have */
     const rc = [8, ((W/3)|0)+8, ((2*W/3)|0)+8];
     drawMap(ICON_SPRAY, rc[0], 23, false);
@@ -2323,15 +2324,15 @@ function drawHUD(){
     else { ctx.strokeStyle = cflash ? C.bad : '#3a5a3c'; ctx.strokeRect(230.5, 13.5, 8, 6); }
     meter(228, 27, 26, complaint, cflash ? C.cream : C.bad);
 
-    drawText('SCORE', W-8-textW('SCORE',1), 5, 1, C.label);
-    drawText(sstr, W-8-textW(sstr,2), 14, 2, C.cream);
+    const sR = TOUCHCAP ? W-22 : W-8;
+    drawText('SCORE', sR-textW('SCORE',1), 5, 1, C.label);
+    drawText(sstr, sR-textW(sstr,2), 14, 2, C.cream);
   }
 
   if (TOUCHCAP){                                // tap the HUD bar to pause
-    const px2 = NARROW ? 168 : 262;
     ctx.fillStyle = paused ? C.accent : C.label;
-    ctx.fillRect(px2, 10, 3, 12);
-    ctx.fillRect(px2+5, 10, 3, 12);
+    ctx.fillRect(W-16, 10, 3, 12);
+    ctx.fillRect(W-11, 10, 3, 12);
   }
 
   /* context hint */
