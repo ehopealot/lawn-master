@@ -1,7 +1,7 @@
 # Lawnmaster — project notes for Claude
 
 Retro pixel lawn-care arcade game. One file, zero dependencies.
-Live: https://ehopealot.github.io/lawn-master/ (GitHub Pages).
+Live: https://lawnmaster.gg/ (GitHub Pages).
 
 ## Layout
 - `index.html` — the entire game (~2700 lines vanilla JS on canvas).

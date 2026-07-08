@@ -1,6 +1,6 @@
 # 🚜 Lawnmaster
 
-Play: https://ehopealot.github.io/lawn-master/
+Play: https://lawnmaster.gg/
 
 A retro pixel-art lawn-care arcade game in a single HTML file. Mow the lawn,
 spray the weeds, honk at the squirrels, bag what the dog leaves behind — and
