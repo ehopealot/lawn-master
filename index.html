@@ -1826,16 +1826,27 @@ function update(dt){
   }
 }
 function slideMove(o, nx, ny, pad, sp, dt2){
-  // axis-separated movement: blocked critters slide along the house walls
+  // axis-separated movement: blocked critters slide along the house walls.
+  // when barely moving, COMMIT to a detour direction and hold it until real
+  // progress resumes — re-deciding each frame against fresh steering left
+  // squirrels jittering at the wall forever
   const ox = o.x, oy = o.y;
   if (!inHouse(nx, o.y, pad)) o.x = nx;
   if (!inHouse(o.x, ny, pad)) o.y = ny;
-  if (Math.abs(o.x-ox) + Math.abs(o.y-oy) < 0.01){   // pinned dead-on: slip around
-    if (inHouse(o.x, ny, pad))
-      o.x += (o.x < HX + HPW/2 ? -1 : 1) * sp * dt2; // blocked vertically: go sideways
-    else
-      o.y += (o.y < HY + HPH/2 ? -1 : 1) * sp * dt2; // blocked sideways: go vertical
+  if (Math.abs(o.x-ox) + Math.abs(o.y-oy) >= sp*dt2*0.4){
+    o.slip = 0;                                  // moving fine: detour over
+    return;
   }
+  if (!o.slip){
+    if (inHouse(o.x, ny, pad))                   // vertical blocked: detour sideways
+      o.slip = (o.x < HX + HPW/2) ? 1 : 2;
+    else                                         // sideways blocked: detour vertically
+      o.slip = (o.y < HY + HPH/2) ? 3 : 4;
+  }
+  const sv = [[-1,0],[1,0],[0,-1],[0,1]][o.slip-1];
+  const sx2 = o.x + sv[0]*sp*dt2, sy2 = o.y + sv[1]*sp*dt2;
+  if (!inHouse(sx2, sy2, pad)){ o.x = sx2; o.y = sy2; }
+  else o.slip = 0;                               // detour blocked too: re-pick
 }
 function pickDogSpot(d){
   if (Math.random() < 0.4){                    // dogs mark where dogs have marked

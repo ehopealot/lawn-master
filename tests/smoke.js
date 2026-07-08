@@ -253,6 +253,20 @@ if (Object.keys(tipsSeen).length !== 0) throw new Error('tip history not wiped')
 if (replayBtnRect()) throw new Error('checkbox should hide with no history');
 tip('move', 'X'); tipQueue.length = 0; tipCur = null;   // restore some history
 
+// squirrel fleeing dead-level at the house wall must detour around it
+squirrels.length = 0;
+player.x = 40; player.y = HUD_H + 40;
+squirrels.push({ x: HX - 20, y: HY + HPH/2, state: 'flee', digT: 0, digs: 0,
+                 tx: W + 20, ty: HY + HPH/2, anim: 0 });
+let escaped = false;
+for (let i=0;i<800;i++){
+  step(16);
+  if (squirrels.length && inHouse(squirrels[0].x, squirrels[0].y, 2))
+    throw new Error('squirrel entered the house');
+  if (squirrels.length === 0){ escaped = true; break; }
+}
+if (!escaped) throw new Error('squirrel stuck at the house wall');
+
 // high scores: ordering + rank
 const hr1 = saveScore(100, 2);
 const hr2 = saveScore(250, 4);
