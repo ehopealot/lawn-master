@@ -2530,8 +2530,6 @@ function drawTitle(){
   drawTextC('ONE HOA LETTER AND YOU ARE DONE FOR', W/2, 192, 1, '#dcd4b4');
   if (Math.floor(t*2)%2===0)
     drawTextC(TOUCHCAP ? 'TAP TO CLOCK IN' : 'PRESS ENTER TO CLOCK IN', W/2, 205, 1, C.accent);
-  if (TOUCHCAP && !STANDALONE)
-    drawTextC('FULL SCREEN: ADD TO HOME SCREEN', W/2, 224, 1, '#8a9a78');
   drawTextC('A HOPE LAWN CO. PRODUCTION', W/2, 222, 1, 'rgba(30,58,18,0.85)');
   const uw = textW('LAWNMASTER.GG', 1) + 8;     // the address on every screenshot
   ctx.fillStyle = 'rgba(12,17,10,0.8)';
